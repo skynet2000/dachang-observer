@@ -4,6 +4,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseLooseDate } from "@aihot/backend/sources/dates";
 
+test("a Chinese publication byline keeps the time printed in hours and minutes", () => {
+  assert.equal(parseLooseDate("2026年11月03日 19时05分", "+08:00")?.toISOString(), "2026-11-03T11:05:00.000Z");
+  assert.equal(parseLooseDate("2026年11月03日 19时05分23秒", "+08:00")?.toISOString(), "2026-11-03T11:05:23.000Z");
+  assert.equal(parseLooseDate("2026年11月03日 25时05分"), null);
+});
+
 test("complete day-month-year dates accept the publisher's punctuation", () => {
   assert.equal(parseLooseDate("07 October, 2026", "+04:00")?.toISOString(), "2026-10-06T20:00:00.000Z");
   assert.equal(parseLooseDate("Published 07 October, 2026", "+08:00")?.toISOString(), "2026-10-06T16:00:00.000Z");
