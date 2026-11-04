@@ -7,14 +7,14 @@ import { pageReuse } from "../lib/page-reuse";
 import { pageMeta } from "../lib/seo";
 import { monthDayTime } from "../lib/format";
 import { Badge } from "../components/ui/Badge";
-import { EmptyState } from "../components/ui/Page";
+import { EmptyState, SectionTabTitle } from "../components/ui/Page";
 import { IconChevronDown, IconInfo } from "../components/icons";
 import { RankList } from "../features/hot/RankList";
 import { PhoneBar } from "../components/shell/PhoneBar";
 import { inNav } from "../components/shell/nav";
 import type { Screen } from "../components/shell/screens";
 
-export const handle: Screen = { tab: inNav("/hot") ? "hot" : "featured", name: "热点" };
+export const handle = { tab: inNav("/hot") ? "hot" : "featured", name: "热点" } satisfies Screen;
 export { pageHeaders as headers } from "../lib/api.server";
 export const { clientLoader, shouldRevalidate } = pageReuse<typeof loader>();
 
@@ -25,6 +25,7 @@ export async function loader({ request }: { request: Request }) {
 export function meta() {
   return pageMeta({
     title: withSubject("热点榜"),
+    omitDocumentTitle: true,
     description: "过去 48 小时已收录信源中的热点事件：热度指数、趋势与组成热度的公开来源。",
     path: "/hot",
     image: "/og/pages/hot.png",
@@ -50,6 +51,7 @@ export default function HotPage() {
   const { hot } = useLoaderData<typeof loader>();
   return (
     <div className="pb-10">
+      <SectionTabTitle label={handle.name} />
       <PhoneBar
         title={translate("热点")}
         large

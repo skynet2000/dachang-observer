@@ -12,17 +12,18 @@ import { webModules } from "../site-modules";
 import { pageMeta } from "../lib/seo";
 import { setFontPreference, useFontPreference, useStarred } from "../lib/local-state";
 import { Select } from "../components/ui/Controls";
+import { SectionTabTitle } from "../components/ui/Page";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
 import { IconBookmark, IconUser, IconChevronRight, IconGrid, IconHeart, IconMessage, IconMoon, IconPlug, IconSparkles } from "../components/icons";
 
-export const handle: Screen = { tab: "me", name: "我的" };
+export const handle = { tab: "me", name: "我的" } satisfies Screen;
 
 export function headers() {
   return edgeTtl(300);
 }
 
 export function meta() {
-  return pageMeta({ title: "我的", path: "/more", noindex: true });
+  return pageMeta({ title: handle.name, path: "/more", noindex: true, omitDocumentTitle: true });
 }
 
 /**
@@ -87,6 +88,7 @@ export default function MorePage() {
   </Select>;
   return (
     <div className="personal-settings mx-auto max-w-[var(--page-max-reading)] pb-8 lg:max-w-[640px] lg:pt-3">
+      <SectionTabTitle label={handle.name} />
       <PhoneBar title={translate("我的")} large />
       <div className="hidden lg:block">
         <h1 className="mb-7 text-[28px] font-bold tracking-[-0.03em] text-ink"><Text>我的</Text></h1>

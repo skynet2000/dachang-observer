@@ -7,7 +7,7 @@ import { cachedPage, loadOr404 } from "../lib/api.server";
 import { pageReuse } from "../lib/page-reuse";
 import { pageMeta, reportLd } from "../lib/seo";
 import { beijingDate } from "@aihot/contracts/time";
-import { EmptyState } from "../components/ui/Page";
+import { EmptyState, SectionTabTitle } from "../components/ui/Page";
 import { ReportLayout } from "../features/report/ReportLayout";
 import { ReportPaper, reportOutline } from "../features/report/ReportPaper";
 import { KIND_LABEL, feedLink, kindFromPath } from "../features/report/format";
@@ -29,6 +29,7 @@ export function meta({ loaderData, location }: Route.MetaArgs) {
   const report = loaderData?.report;
   return [...pageMeta({
     title: withSubject(KIND_LABEL[kind]),
+    omitDocumentTitle: true,
     description,
     path: location.pathname,
     image: `/og/pages/${kind}.png`,
@@ -42,6 +43,7 @@ export default function ReportLatestPage() {
   const { kind, report, index, today } = useLoaderData<typeof loader>();
   return (
     <ReportLayout kind={kind} index={index} current={report?.key ?? null} today={today} outline={report ? reportOutline(report) : []}>
+      <SectionTabTitle label={KIND_LABEL[kind]} />
       {report ? <ReportPaper report={report} index={index} /> : <EmptyState title={translate(subjectAfter("还没有发布", KIND_LABEL[kind]))}><Text>第一期发布后会出现在这里。</Text></EmptyState>}
     </ReportLayout>
   );

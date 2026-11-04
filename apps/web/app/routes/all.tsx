@@ -13,14 +13,14 @@ import { PillTabs } from "../components/ui/Tabs";
 import { HotTopics } from "../features/feed/HotTopics";
 import { FeedMasthead } from "../features/feed/FeedMasthead";
 import { DayList, Pagination } from "../features/feed/DayList";
-import { EmptyState } from "../components/ui/Page";
+import { EmptyState, SectionTabTitle } from "../components/ui/Page";
 import { IconSearch } from "../components/icons";
 import { PhoneBar } from "../components/shell/PhoneBar";
 import { isPhone, type Screen } from "../components/shell/screens";
 import { openSearch } from "../features/search/SearchOverlay";
 import { addRecentSearch } from "../lib/local-state";
 
-export const handle: Screen = { tab: "all", name: "资讯" };
+export const handle = { tab: "all", name: "资讯" } satisfies Screen;
 export { pageHeaders as headers } from "../lib/api.server";
 export const { clientLoader, shouldRevalidate } = pageReuse<typeof loader>();
 
@@ -57,6 +57,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   const noindex = !!q || hasFeedFilters(f);
   return pageMeta({
     title,
+    omitDocumentTitle: !q && page === 1,
     description: `${SITE.name} 收录的${subjectAfter("全部", "相关动态")}，可按栏目与标签筛选，支持中英文搜索。`,
     path,
     noindex,
@@ -107,6 +108,7 @@ export default function AllPage() {
 
   return (
     <div className="pb-6">
+      {!f.q && data.page === 1 && <SectionTabTitle label={handle.name} />}
       {/* Phones: the feed bar, or for a search the query (tap to change it) and back to 全部. */}
       {f.q ? (
         <PhoneBar
