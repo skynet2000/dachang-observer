@@ -9,9 +9,11 @@
  */
 export const EDITION_TIMES = { daily: "08:00", weekly: "10:00", monthly: "10:30" };
 
-/** 大厂观察所有启用自动信源每两小时采集，失败时仍保留退避。 */
-export function collectionIntervalMinutes(): number {
-  return 120;
+/** 大厂观察默认每两小时采集，脉脉热榜对应原帖每半小时采集。 */
+export const MAIMAI_COLLECTION = { sourceId: "external-maimai-posts", intervalMinutes: 30, maxBackoffMinutes: 120 };
+
+export function collectionIntervalMinutes(sourceId?: string): number {
+  return sourceId === MAIMAI_COLLECTION.sourceId ? MAIMAI_COLLECTION.intervalMinutes : 120;
 }
 
 /** “每天 08:00”“每周一 10:00”“每月 1 日 10:30”：写进句子里的出刊时间。 */
