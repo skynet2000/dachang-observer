@@ -22,6 +22,8 @@ export interface PageMetaInput {
   title?: string | null;
   /** Use `title` verbatim as the document title (no " · <site>" suffix). */
   rawTitle?: boolean;
+  /** The section renders a localized document title while keeping its sharing metadata. */
+  omitDocumentTitle?: boolean;
   description?: string | null;
   path: string;
   image?: string | null;
@@ -77,7 +79,7 @@ export function pageMeta(input: PageMetaInput): MetaDescriptor[] {
   const url = `${base}${input.path}`;
   const image = input.image ? (input.image.startsWith("http") ? input.image : `${base}${input.image}`) : `${base}/og/site.png`;
   const tags: MetaDescriptor[] = [
-    { title },
+    ...(input.omitDocumentTitle ? [] : [{ title }]),
     { name: "description", content: description },
     { tagName: "link", rel: "canonical", href: url },
     { property: "og:site_name", content: SITE.name },

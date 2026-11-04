@@ -1,7 +1,14 @@
-import { Text } from "@aihot/web/lib/text";
+import { Text, useText } from "@aihot/web/lib/text";
+import { SITE } from "@aihot/site";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { IconChevronRight } from "../icons";
+
+/** React hoists this title to the document head, including on a direct server render. */
+export function SectionTabTitle({ label }: { label: string }) {
+  const translate = useText();
+  return <title>{`${SITE.name} · ${translate(label)}`}</title>;
+}
 
 /**
  * The reading template, one of the site's two page widths (the other is the full-width feeds and

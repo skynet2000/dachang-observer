@@ -104,6 +104,7 @@ test('default home shows All with four navigation destinations and no selection 
     const context=await chrome.newContext({viewport:{width,height:900}}),page=await context.newPage();
     try{const before=hits.length;await page.goto(origin+'/');await expect(page.getByRole('link',{name:'性能检查文章',exact:true})).toBeVisible();
       const nav=page.getByRole('navigation',{name:width<961?'底部导航':'主导航',exact:true});
+      await expect(page).toHaveTitle('大厂观察 · 资讯');
       assert.deepEqual(await nav.getByRole('link').allTextContents(),['资讯','热点','日报','我的']);
       await expect(nav.getByRole('link',{name:'资讯',exact:true})).toHaveAttribute('aria-current','page');
       assert.equal(hits.slice(before).some(p=>p.startsWith('/api/site/timeline')),false);
@@ -114,6 +115,36 @@ test('default home shows All with four navigation destinations and no selection 
       await expect(page.getByRole('navigation',{name:width<961?'Bottom navigation':'Main navigation',exact:true}).getByRole('link',{name:'News',exact:true})).toHaveAttribute('aria-current','page');
       await expect(page.getByRole('navigation',{name:'Category',exact:true}).getByRole('link',{name:'All topics',exact:true})).toHaveAttribute('aria-current','page');
     }finally{await context.close();}
+  }
+});
+
+test('browser tab follows the open section and language without adding another title', async () => {
+  for (const [browser, width] of [[safari, 390], [chrome, 1280]] as const) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    const page = await context.newPage();
+    try {
+      const response = await page.goto(origin + '/all?category=jobs');
+      assert.match(await response!.text(), /<title>大厂观察 · 资讯<\/title>/);
+      const nav = page.getByRole('navigation', { name: width < 961 ? '底部导航' : '主导航', exact: true });
+      for (const name of ['热点', '日报', '我的']) {
+        await nav.getByRole('link', { name, exact: true }).click();
+        await expect(page).toHaveTitle(`大厂观察 · ${name}`);
+        await expect(page.locator('head title')).toHaveCount(1);
+      }
+      await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
+      await expect(page).toHaveTitle('大厂观察 · Me');
+      await page.getByRole('navigation', { name: width < 961 ? 'Bottom navigation' : 'Main navigation', exact: true })
+        .getByRole('link', { name: 'News', exact: true }).click();
+      await expect(page).toHaveTitle('大厂观察 · News');
+      await page.reload();
+      await expect(page).toHaveTitle('大厂观察 · 资讯');
+
+      for (const [path, title] of [['/weekly', '大厂观察 · 周报'], ['/monthly', '大厂观察 · 月报'], ['/items/navigation-fixture', '性能检查文章 · 大厂观察']]) {
+        await page.goto(origin + path);
+        await expect(page).toHaveTitle(title!);
+        await expect(page.locator('head title')).toHaveCount(1);
+      }
+    } finally { await context.close(); }
   }
 });
 

@@ -14,8 +14,9 @@ import { FeedMasthead } from "../features/feed/FeedMasthead";
 import { FeedWelcome } from "../features/feed/FeedWelcome";
 import { HotTopics } from "../features/feed/HotTopics";
 import { ActiveFilters, CategoryTabs, FeedBar, SearchField } from "../features/feed/Filters";
+import { SectionTabTitle } from "../components/ui/Page";
 
-export const handle: Screen = { tab: EDITORIAL.selectionEnabled ? "featured" : "all", name: EDITORIAL.selectionEnabled ? "精选" : "资讯" };
+export const handle = { tab: EDITORIAL.selectionEnabled ? "featured" : "all", name: EDITORIAL.selectionEnabled ? "精选" : "资讯" } satisfies Screen;
 export { pageHeaders as headers } from "../lib/api.server";
 export const { clientLoader, shouldRevalidate } = pageReuse<typeof loader>();
 
@@ -41,7 +42,7 @@ export function meta(args: Route.MetaArgs) {
   const loaderData = args.loaderData as {data: TimelineResponse; filters: ReturnType<typeof readFilters>} | undefined;
   const path = listPath("/", loaderData ? filterParams(loaderData.filters) : {});
   const titles = loaderData?.data.cards.map((c) => c.item.title) ?? [];
-  return pageMeta({ path, noindex: hasFeedFilters(loaderData?.filters), jsonLd: path === "/" ? [...siteLd(), itemListLd("/", "精选", titles)] : undefined });
+  return pageMeta({ path, omitDocumentTitle: true, noindex: hasFeedFilters(loaderData?.filters), jsonLd: path === "/" ? [...siteLd(), itemListLd("/", "精选", titles)] : undefined });
 }
 
 export default function Home() {
@@ -50,6 +51,7 @@ export default function Home() {
   const title = filters.tag ? `#${filters.tag}` : "精选";
   return (
     <div className="pb-6">
+      <SectionTabTitle label={handle.name} />
       <FeedBar base="/" />
       <FeedMasthead />
       {!!data.hot?.length && inNav("/hot") && <HotTopics entries={data.hot} />}
