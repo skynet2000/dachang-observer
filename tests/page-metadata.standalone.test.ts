@@ -96,7 +96,8 @@ for (const [kind, label] of [["daily", "日报"], ["weekly", "周报"], ["monthl
     assert.equal(article.image, `${web.origin}/og/reports/${kind}/${r.key}.png`);
     assert.equal("dateModified" in article, false);
     const latest = await page(`/${kind}`);
-    assert.equal(latest("title").text(), `${withSubject(label)} · ${SITE.name}`);
+    assert.equal(latest("title").text(), `${SITE.name} · ${label}`);
+    assert.equal(latest("meta[property='og:title']").attr("content"), withSubject(label));
   });
 }
 
