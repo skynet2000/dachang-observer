@@ -7,18 +7,21 @@ import { upsertMaterial, FUTURE_TOLERANCE_MS, type MaterialInput } from "@aihot/
 import { recordFetch } from "@aihot/backend/sources/collect";
 import { fetchRss } from "@aihot/backend/sources/rss";
 import { fetchJsonList } from "@aihot/backend/sources/json-list";
-import { admitListing } from "@aihot/backend/sources/filters";
+import { noiseFiltered } from "@aihot/backend/sources/filters";
 import { FetchError, type Candidate, type SourceRow } from "@aihot/backend/sources/types";
 
 export const SOURCE_ID = "external-maimai-posts";
 export const NOTICE = "未经独立核实";
 const LEADS_ID = "rss-maimai-hot";
+const DAY = 86400000;
 const WEEK = 7 * 86400000;
+const MAX_TOPICS = 15;
+const MAX_POSTS_PER_TOPIC = 5;
 
 function canonicalTopicUrl(input: string): string | null {
-  const url = new URL(input);
-  const topicId = url.searchParams.get("topic_id");
-  if (url.origin !== "https://maimai.cn" || url.pathname !== "/n/content/global-topic" || !topicId || !/^[\w-]{1,40}$/.test(topicId)) return null;
+  const url = URL.parse(input);
+  const topicId = url?.searchParams.get("topic_id");
+  if (url?.origin !== "https://maimai.cn" || url.pathname !== "/n/content/global-topic" || !topicId || !/^[\w-]{1,40}$/.test(topicId)) return null;
   return `https://maimai.cn/n/content/global-topic?circle_type=9&topic_id=${topicId}`;
 }
 
@@ -35,7 +38,7 @@ export function topicSource(lead: Candidate, source: SourceRow): SourceRow | nul
   } };
 }
 
-export function postMaterial(post: Candidate, lead: Candidate, now: Date): MaterialInput | null {
+export function postMaterial(post: Candidate, lead: Candidate, now: Date): (MaterialInput & { identityKey: string }) | null {
   const id = String((post.raw as { externalId?: unknown } | null)?.externalId ?? "");
   const url = new URL(post.url);
   const at = post.publishedAt;
@@ -62,34 +65,67 @@ export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: ty
   const [run] = await sql<{ id: number }[]>`INSERT INTO fetch_runs (source_id) VALUES (${SOURCE_ID}) RETURNING id`;
   let found = 0, created = 0, revised = 0, rejected = 0;
   const errors: string[] = [];
+  let topics: Candidate[] = [];
+  let readableTopics = 0;
+  let rssError: string | null = null;
+  let snapshot = source.cursor?.hotTopics as { fetchedAt: number; topics: Candidate[] } | undefined;
+  const detail = () => ({ topics: topics.length, readableTopics, rejected, revised, errors, rssError });
   try {
-    const rss = await (readers.rss ?? fetchRss)(leads, { force: true });
-    const topics = admitListing(rss.candidates, leads).slice(0, 15);
-    for (const lead of topics) {
-      try {
-        const draft = topicSource(lead, source);
-        if (!draft) { rejected++; continue; }
-        const posts = await (readers.posts ?? fetchJsonList)(draft);
-        if (!posts.length) throw new FetchError("Public topic contains no readable posts");
-        found += posts.length;
-        let kept = 0;
-        for (const post of posts) {
-          const material = postMaterial(post, lead, new Date());
-          if (!material) { rejected++; continue; }
-          if (kept++ >= 3) break;
-          const result = await upsertMaterial({ ...material, backfill: source.cursor?.initializedAt ? null : "source-first-import" });
-          created += Number(result.created); revised += Number(result.revised);
-          if (result.created || result.revised || result.processingNeeded) await queueProcessing(result.articleId);
-        }
-      } catch (error) { errors.push(`${lead.title}: ${error instanceof Error ? error.message : String(error)}`); }
+    try {
+      const rss = await (readers.rss ?? fetchRss)(leads, { force: true });
+      const unique = new Map<string, Candidate>();
+      for (const lead of rss.candidates) {
+        const url = canonicalTopicUrl(lead.url);
+        if (url && !unique.has(url)) unique.set(url, { url, title: lead.title, excerpt: lead.excerpt });
+        if (unique.size >= MAX_TOPICS) break;
+      }
+      if (!unique.size) throw new FetchError("Maimai RSS contains no valid hot-topic links");
+      snapshot = { fetchedAt: Date.now(), topics: [...unique.values()] };
+    } catch (error) {
+      rssError = error instanceof Error ? error.message : String(error);
+      if (!snapshot || Date.now() - snapshot.fetchedAt >= DAY) throw error;
     }
-    const detail = { topics: topics.length, rejected, revised, errors };
-    if (errors.length) throw new FetchError(errors.join("; ").slice(0, 1500));
-    await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail, cursor: { initializedAt: source.cursor?.initializedAt ?? new Date().toISOString() } });
-    return { found, created, ...detail };
+    topics = snapshot.topics;
+    const seen = new Set<string>();
+    for (const lead of topics) {
+      const draft = topicSource(lead, source);
+      if (!draft) continue;
+      let posts: Candidate[];
+      try {
+        posts = await (readers.posts ?? fetchJsonList)(draft);
+        if (!posts.length) throw new FetchError("Public topic contains no readable posts");
+      } catch (error) {
+        errors.push(`${lead.title}: ${error instanceof Error ? error.message : String(error)}`);
+        continue;
+      }
+      readableTopics++;
+      found += posts.length;
+      const relevantLead = !noiseFiltered(lead, leads);
+      let kept = 0;
+      for (const post of posts) {
+        if (kept >= MAX_POSTS_PER_TOPIC) break;
+        const material = postMaterial(post, lead, new Date());
+        // A vague hot-topic headline can lead to a useful post. In that case the post itself must
+        // supply both the employer and the workplace context before the usual editorial review.
+        if (!material || (!relevantLead && noiseFiltered({ ...post, title: `${post.title}\n${post.bodyText}` }, leads))) {
+          rejected++;
+          continue;
+        }
+        if (seen.has(material.identityKey)) continue;
+        seen.add(material.identityKey);
+        kept++;
+        const result = await upsertMaterial({ ...material, backfill: source.cursor?.initializedAt ? null : "source-first-import" });
+        created += Number(result.created); revised += Number(result.revised);
+        if (result.created || result.revised || result.processingNeeded) await queueProcessing(result.articleId);
+      }
+    }
+    if (!readableTopics) throw new FetchError(errors.join("; ").slice(0, 1500) || "No readable Maimai hot topics");
+    await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(),
+      cursor: { initializedAt: source.cursor?.initializedAt ?? new Date().toISOString(), hotTopics: snapshot } });
+    return { found, created, ...detail() };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: { rejected, revised, errors }, error: message, budget: false });
+    await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(), error: message, budget: false });
     throw error;
   }
 }

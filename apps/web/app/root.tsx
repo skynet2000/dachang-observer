@@ -25,10 +25,10 @@ import { titled } from "./lib/seo";
 import { webModules } from "./site-modules";
 
 export const links: Route.LinksFunction = () => [
-  { rel: "icon", href: "/favicon.ico?v=observer-20261023", sizes: "any" },
-  { rel: "icon", type: "image/png", href: "/icon.png?v=observer-20261023" },
-  { rel: "apple-touch-icon", href: "/apple-icon.png?v=observer-20261023" },
-  { rel: "manifest", href: "/manifest.webmanifest?v=observer-20261023" },
+  { rel: "icon", href: "/favicon.ico?v=observer-20261104", sizes: "any" },
+  { rel: "icon", type: "image/png", href: "/icon.png?v=observer-20261104" },
+  { rel: "apple-touch-icon", href: "/apple-icon.png?v=observer-20261104" },
+  { rel: "manifest", href: "/manifest.webmanifest?v=observer-20261104" },
   { rel: "alternate", type: "application/rss+xml", title: `${SITE.name} — ${EDITORIAL.selectionEnabled ? "精选" : "全部动态"}`, href: EDITORIAL.selectionEnabled ? "/feed.xml" : "/feed/all.xml" },
 ];
 

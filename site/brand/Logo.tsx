@@ -1,14 +1,13 @@
 import { SITE } from "../site.ts";
 
-/** Two company boundaries and one observation point, legible even as a small app icon. */
+/** An architectural 厂 with a warm lit window. */
 function ObservationMark({ className = "", spinning = false }: { className?: string; spinning?: boolean }) {
   return <svg viewBox="0 0 40 40" fill="none" className={className} aria-hidden="true">
-    <rect width="40" height="40" rx="12" fill="#10213d" />
+    <rect width="40" height="40" rx="9" fill="#291e44" />
     <g className={spinning ? "brand-mark-spinning" : undefined}>
-      <path d="M18 10h-6l-4 4v16" stroke="#93b7ff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M22 30h6l4-4V10" stroke="#65dfeb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 11h18v5H18l-5 14H7z" fill="#fff3e2" />
+      <path d="M23 21h9v9H20z" fill="#ffad68" />
     </g>
-    <circle cx="20" cy="20" r="3.5" fill="#fff" />
   </svg>;
 }
 

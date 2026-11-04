@@ -14,6 +14,7 @@ const now = new Date();
 const egid = "a".repeat(32);
 const post = { id: "100123", egid, title: "测试互联网企业员工自述收到岗位调整通知", text: "我在测试互联网企业工作，今天收到岗位调整的协商通知，具体适用部门还不清楚。以上是个人经历，没有企业公告。", author_info: { name: "测试匿名用户", privateId: "do-not-store" }, publish_time: Math.floor(now.getTime()/1000), shareable: 1, ip_loc: "do-not-store", cmts: [{text:"Do not join comments"}] };
 const topics = ["topicA", "topicB"].map(id => ({title:"测试互联网企业员工调整",url:`https://maimai.cn/n/content/global-topic?topic_id=${id}&share_euid=do-not-store`}));
+const vagueTopic = { title: "最近这波变化大家怎么看", url: "https://maimai.cn/n/content/global-topic?topic_id=vague" };
 let badTopic = false;
 const server = http.createServer((req,res) => {
   if(req.url==="/rss") { res.setHeader("content-type","application/rss+xml");return res.end(`<rss version="2.0"><channel><title>test</title>${topics.map(t=>`<item><title>${t.title}</title><link>${t.url.replaceAll('&','&amp;')}</link></item>`).join("")}</channel></rss>`); }
@@ -25,7 +26,7 @@ before(async()=>{
   await new Promise<void>(r=>server.listen(0,"127.0.0.1",r));
   config.allowPrivateNetworkFetch=true;
   await sql`INSERT INTO sources(id,name,kind,config,participation_mode,interval_minutes) VALUES
-    ('rss-maimai-hot','Maimai leads','rss','{}','isolated',120),
+    ('rss-maimai-hot','Maimai leads','rss',${sql.json({ ingestNoiseFilter: { requireTitleAnyMatches: ["互联网", "腾讯"], requireAnyMatches: ["员工", "薪酬"] } })},'isolated',120),
     (${SOURCE_ID},'Maimai public posts','external',${sql.json({publicationNotice:NOTICE})},'editorial',120)`;
 });
 after(async()=>{ if(oldCollect===undefined)delete process.env.COLLECT_ENABLED;else process.env.COLLECT_ENABLED=oldCollect;await stopBoss();await closeDb();await new Promise<void>(r=>server.close(()=>r())); });
@@ -63,6 +64,40 @@ test("login or missing post data is a recorded failure, never a healthy empty to
   assert.equal(source!.health,"degraded");assert.equal(source!.fail_count,1);
   const [run]=await sql`SELECT status FROM fetch_runs WHERE source_id=${SOURCE_ID} ORDER BY id DESC LIMIT 1`;
   assert.equal(run!.status,"failed");
+});
+
+test("reads vaguely titled hot topics, keeps up to five relevant posts and survives a bridge error", async () => {
+  await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
+  const candidate = {
+    title: "收到新通知", author: "测试用户", bodyText: "我在腾讯工作，今天收到新的薪酬调整通知，具体适用团队仍不清楚。",
+    publishedAt: now, url: `https://maimai.cn/n/content/gossip-detail/100200?egid=${egid}&gid=100200`, raw: { externalId: "100200" },
+  };
+  const topicPosts = [
+    { ...candidate, title: "午饭吃什么", bodyText: "今天和朋友出门吃了一顿饭，聊了一下假期出去旅行的计划。" },
+    ...Array.from({ length: 6 }, (_, i) => {
+      const id = String(100201 + i);
+      return { ...candidate, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id } };
+    }),
+  ];
+  const hotRss: typeof fetchRss = async (source, opts) => ({ ...await readers.rss(source, opts), candidates: [vagueTopic] });
+  const result = await collectMaimai({ rss: hotRss, posts: async () => topicPosts });
+  assert("created" in result);
+  assert.equal(result.created, 5);
+  assert.equal(result.rejected, 1);
+
+  const errorRss: typeof fetchRss = async (source, opts) => ({
+    ...await hotRss(source, opts),
+    candidates: [{ title: "订阅源发生错误（RSS Error）", url: "https://decemberpei.cyou/rssbox/error" }],
+  });
+  await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
+  const cached = await collectMaimai({ rss: errorRss, posts: async () => topicPosts });
+  assert("created" in cached);
+  assert.equal(cached.created, 0);
+  assert.equal(cached.topics, 1);
+  assert.match(cached.rssError ?? "", /no valid hot-topic links/);
+
+  await sql`UPDATE sources SET next_fetch_at=now(), cursor=jsonb_set(cursor, '{hotTopics,fetchedAt}', '0') WHERE id=${SOURCE_ID}`;
+  await assert.rejects(collectMaimai({ rss: errorRss, posts: async () => { throw new Error("expired cache used"); } }), /no valid hot-topic links/);
 });
 
 test("a missing date, private post, future date and non-platform link never become publication material",async()=>{
