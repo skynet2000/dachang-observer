@@ -31,7 +31,7 @@ function atOffset(y: string | number, mo: string | number, d: string | number, h
  */
 export function parseLooseDate(value: string | null | undefined, utcOffset = "+08:00"): Date | null {
   if (!value) return null;
-  const v = value.trim();
+  const v = value.trim().replace(/(\d{1,2})时(\d{2})分(?:(\d{2})秒)?/, (_match, hours, minutes, seconds = "00") => `${hours}:${minutes}:${seconds}`);
   if (!v) return null;
   const compact = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(v);
   if (compact) return atOffset(compact[1]!, compact[2]!, compact[3]!, compact[4]!, compact[5]!, compact[6]!, utcOffset);
