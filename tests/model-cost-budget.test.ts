@@ -164,6 +164,21 @@ test("the minute scheduler moves an existing deadline and preserves longer failu
   assert.equal(await syncCollectionIntervals(), 0);
 });
 
+test("the Maimai override reschedules healthy runs and caps existing backoff", async () => {
+  const id = "external-maimai-posts";
+  await sql`INSERT INTO sources (id,name,kind,config,tier,enabled,interval_minutes,last_fetch_at,next_fetch_at)
+    VALUES (${id},'Maimai posts','external','{}','T2',true,120,now(),now() + interval '2 hours')`;
+  const read = async () => (await sql`SELECT interval_minutes,
+    extract(epoch from (next_fetch_at - last_fetch_at)) / 60 AS wait FROM sources WHERE id=${id}`)[0]!;
+  await syncCollectionIntervals();
+  assert.equal((await read()).interval_minutes, 30);
+  assert.equal(Number((await read()).wait), 30);
+  await sql`UPDATE sources SET interval_minutes=120, fail_count=3, next_fetch_at=last_fetch_at + interval '6 hours' WHERE id=${id}`;
+  await adaptIntervals();
+  assert.equal((await read()).interval_minutes, 30);
+  assert.equal(Number((await read()).wait), 120);
+});
+
 test("the enabled cost limit caps oversized output allowances on the wire and in the receipt", async () => {
   const names = ["LLM_DAILY_BUDGET_CNY", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"];
   const previous = names.map(name => process.env[name]); const originalFetch = globalThis.fetch;

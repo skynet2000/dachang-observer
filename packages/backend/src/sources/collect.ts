@@ -1,7 +1,7 @@
 // Collection run for one source: fetch listing → filter → store material → enqueue processing.
 // A failed fetch never advances the success cursor; the source's health reflects consecutive failures.
 import { sql, type Db } from "../db.ts";
-import { collectionIntervalMinutes } from "@aihot/site";
+import { collectionIntervalMinutes, MAIMAI_COLLECTION } from "@aihot/site";
 import { identityKeyFor, reuseExternalMaterialIdentities, STALE_ON_DISCOVERY_MS, upsertMaterial } from "../content/materials.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { sha256 } from "../lib/ids.ts";
@@ -76,9 +76,9 @@ async function store(sourceId: string, candidates: CollectionCandidate[], backfi
 /**
  * The end of a fetch run, on the run and on its source. Success marks the source healthy and due again
  * one interval later. A failure counts toward "failing" (5 in a row) and waits longer after each one,
- * up to six hours; a full budget is not the source's failure: it waits 15 minutes and counts nothing.
+ * up to its backoff limit (six hours by default); a full budget is not the source's failure: it waits 15 minutes and counts nothing.
  */
-export async function recordFetch(db: Db, sourceId: string, runId: number, run: { found: number; created: number; detail: object | null } & ({ cursor: Record<string, unknown> } | { error: string; budget: boolean })): Promise<void> {
+export async function recordFetch(db: Db, sourceId: string, runId: number, run: { found: number; created: number; detail: object | null } & ({ cursor: Record<string, unknown> } | { error: string; budget: boolean; maxBackoffMinutes?: number })): Promise<void> {
   const detail = run.detail ? db.json(run.detail as never) : null;
   if ("cursor" in run) {
     await db`
@@ -94,7 +94,7 @@ export async function recordFetch(db: Db, sourceId: string, runId: number, run: 
       fail_count = CASE WHEN ${run.budget} THEN fail_count ELSE fail_count + 1 END,
       last_error = ${run.error},
       health = CASE WHEN ${run.budget} THEN health WHEN fail_count + 1 >= 5 THEN 'failing' ELSE 'degraded' END,
-      next_fetch_at = now() + make_interval(mins => CASE WHEN ${run.budget} THEN 15 ELSE LEAST(interval_minutes * (fail_count + 2), 360) END),
+      next_fetch_at = now() + make_interval(mins => CASE WHEN ${run.budget} THEN 15 ELSE LEAST(interval_minutes * (fail_count + 2), ${run.maxBackoffMinutes ?? 360}) END),
       updated_at = now()
     WHERE id = ${sourceId}`;
   await db`UPDATE fetch_runs SET status = 'failed', finished_at = now(), found_count = ${run.found}, new_count = ${run.created},
@@ -377,15 +377,24 @@ export async function scheduleDueSources(): Promise<{ enqueued: number; shards: 
   return { enqueued, shards: await scheduleXShards() };
 }
 
-/** Apply the site's interval before selecting work; keep any longer failure backoff. */
+/** Apply site intervals before selecting work and preserve failure backoff within each policy. */
 export async function syncCollectionIntervals(): Promise<number> {
-  const minutes = collectionIntervalMinutes();
   const changed = await sql`
-    UPDATE sources SET interval_minutes = ${minutes}, updated_at = now(),
-      next_fetch_at = CASE WHEN fail_count > 0
-        THEN greatest(coalesce(next_fetch_at, now()), coalesce(last_fetch_at + make_interval(mins => ${minutes}), now()))
-        ELSE coalesce(last_fetch_at + make_interval(mins => ${minutes}), now()) END
-    WHERE enabled AND interval_minutes <> ${minutes}`;
+    WITH policy AS (
+      SELECT id,
+        CASE WHEN id = ${MAIMAI_COLLECTION.sourceId} THEN ${MAIMAI_COLLECTION.intervalMinutes}::int ELSE ${collectionIntervalMinutes()} END AS minutes,
+        CASE WHEN id = ${MAIMAI_COLLECTION.sourceId} THEN ${MAIMAI_COLLECTION.maxBackoffMinutes}::int END AS max_backoff_minutes
+      FROM sources WHERE enabled
+    )
+    UPDATE sources s SET interval_minutes = policy.minutes, updated_at = now(),
+      next_fetch_at = CASE WHEN s.fail_count > 0
+        THEN least(
+          greatest(coalesce(s.next_fetch_at, now()), coalesce(s.last_fetch_at + make_interval(mins => policy.minutes), now())),
+          s.last_fetch_at + make_interval(mins => policy.max_backoff_minutes)
+        )
+        ELSE coalesce(s.last_fetch_at + make_interval(mins => policy.minutes), now()) END
+    FROM policy
+    WHERE s.id = policy.id AND s.interval_minutes <> policy.minutes`;
   return changed.count;
 }
 
@@ -412,7 +421,7 @@ export async function adaptIntervals(): Promise<{ updated: number }> {
     // Listings read through Jina are not looked at more than hourly: busy ones would outrun its daily budget.
     const min = r.paid_listing ? 60 : 15;
     // X accounts read by shard follow the shard's pace, whatever their own volume.
-    const target = collectionIntervalMinutes() ?? (shardHandle(r) ? shardMinutes(r.participation_mode) : perDay <= 0.15 ? max : Math.round(Math.min(max, Math.max(min, (24 * 60) / (perDay * 3)))));
+    const target = collectionIntervalMinutes(r.id) ?? (shardHandle(r) ? shardMinutes(r.participation_mode) : perDay <= 0.15 ? max : Math.round(Math.min(max, Math.max(min, (24 * 60) / (perDay * 3)))));
     const res = await sql`UPDATE sources SET interval_minutes = ${target} WHERE id = ${r.id} AND interval_minutes <> ${target}`;
     updated += res.count;
   }

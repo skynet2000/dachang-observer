@@ -8326,7 +8326,7 @@
       "owner_entity_id": null,
       "signal_group_id": "community-maimai",
       "participation_mode": "editorial",
-      "interval_minutes": 120,
+      "interval_minutes": 30,
       "tags": [
         "职场",
         "社区",

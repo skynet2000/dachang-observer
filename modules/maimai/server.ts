@@ -1,4 +1,5 @@
 // Public hot topics discover individual posts; no login, comments, private identifiers or model calls here.
+import { MAIMAI_COLLECTION } from "@aihot/site";
 import { sql } from "@aihot/backend/db";
 import { defineQueue, type ServerModule } from "@aihot/backend/modules";
 import { enqueueOn } from "@aihot/backend/jobs/queue";
@@ -10,7 +11,7 @@ import { fetchJsonList } from "@aihot/backend/sources/json-list";
 import { noiseFiltered } from "@aihot/backend/sources/filters";
 import { FetchError, type Candidate, type SourceRow } from "@aihot/backend/sources/types";
 
-export const SOURCE_ID = "external-maimai-posts";
+export const SOURCE_ID = MAIMAI_COLLECTION.sourceId;
 export const NOTICE = "未经独立核实";
 const LEADS_ID = "rss-maimai-hot";
 const DAY = 86400000;
@@ -125,7 +126,7 @@ export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: ty
     return { found, created, ...detail() };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(), error: message, budget: false });
+    await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(), error: message, budget: false, maxBackoffMinutes: MAIMAI_COLLECTION.maxBackoffMinutes });
     throw error;
   }
 }
@@ -137,6 +138,12 @@ export const collectQueue = defineQueue<Record<string, never>>({
 
 export default {
   name: "maimai", queues: [collectQueue],
-  schedules: [{ name: "maimai.poll", cron: "*/15 * * * *", when: () => process.env.COLLECT_ENABLED === "true",
-    run: () => enqueueOn(collectQueue, {}, { singletonKey: SOURCE_ID }) }],
+  schedules: [{ name: "maimai.poll", cron: "* * * * *", when: () => process.env.COLLECT_ENABLED === "true",
+    run: async () => {
+      const [due] = await sql`
+        SELECT 1 FROM sources
+        WHERE id = ${SOURCE_ID} AND enabled AND (next_fetch_at IS NULL OR next_fetch_at <= now())
+          AND EXISTS (SELECT 1 FROM sources WHERE id = ${LEADS_ID} AND enabled)`;
+      if (due) await enqueueOn(collectQueue, {}, { singletonKey: SOURCE_ID });
+    } }],
 } satisfies ServerModule;

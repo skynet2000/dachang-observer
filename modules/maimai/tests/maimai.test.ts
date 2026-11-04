@@ -27,7 +27,7 @@ before(async()=>{
   config.allowPrivateNetworkFetch=true;
   await sql`INSERT INTO sources(id,name,kind,config,participation_mode,interval_minutes) VALUES
     ('rss-maimai-hot','Maimai leads','rss',${sql.json({ ingestNoiseFilter: { requireTitleAnyMatches: ["互联网", "腾讯"], requireAnyMatches: ["员工", "薪酬"] } })},'isolated',120),
-    (${SOURCE_ID},'Maimai public posts','external',${sql.json({publicationNotice:NOTICE})},'editorial',120)`;
+    (${SOURCE_ID},'Maimai public posts','external',${sql.json({publicationNotice:NOTICE})},'editorial',30)`;
 });
 after(async()=>{ if(oldCollect===undefined)delete process.env.COLLECT_ENABLED;else process.env.COLLECT_ENABLED=oldCollect;await stopBoss();await closeDb();await new Promise<void>(r=>server.close(()=>r())); });
 const base=()=>`http://127.0.0.1:${(server.address() as {port:number}).port}`;
@@ -51,6 +51,8 @@ test("topic extraction preserves precise original time and deduplicates a post a
   assert.equal(rows[0]!.url,`https://maimai.cn/n/content/gossip-detail/100123?egid=${egid}&gid=100123`);
   assert.equal(rows[0]!.body_status,"ok");
   assert(!JSON.stringify(rows[0]).includes("do-not-store"));assert(!rows[0]!.body_text.includes("Do not join comments"));
+  const [schedule] = await sql`SELECT next_fetch_at - last_fetch_at = interval '30 minutes' AS on_time FROM sources WHERE id=${SOURCE_ID}`;
+  assert.equal(schedule!.on_time, true);
   assert.deepEqual(await collectMaimai(readers),{skipped:"not-due"});
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   const again=await collectMaimai(readers);assert('created' in again);assert.equal(again.created,0);assert.equal(again.revised,0);
@@ -60,10 +62,14 @@ test("login or missing post data is a recorded failure, never a healthy empty to
   process.env.COLLECT_ENABLED="true";badTopic=true;
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   await assert.rejects(collectMaimai(readers),/topicFeeds/);
-  const [source]=await sql`SELECT health,fail_count FROM sources WHERE id=${SOURCE_ID}`;
-  assert.equal(source!.health,"degraded");assert.equal(source!.fail_count,1);
+  const [source]=await sql`SELECT health,fail_count, next_fetch_at - last_fetch_at = interval '60 minutes' AS on_time FROM sources WHERE id=${SOURCE_ID}`;
+  assert.equal(source!.health,"degraded");assert.equal(source!.fail_count,1);assert.equal(source!.on_time,true);
   const [run]=await sql`SELECT status FROM fetch_runs WHERE source_id=${SOURCE_ID} ORDER BY id DESC LIMIT 1`;
   assert.equal(run!.status,"failed");
+  await sql`UPDATE sources SET fail_count=5, next_fetch_at=now() WHERE id=${SOURCE_ID}`;
+  await assert.rejects(collectMaimai(readers),/topicFeeds/);
+  const [capped] = await sql`SELECT next_fetch_at - last_fetch_at = interval '120 minutes' AS capped FROM sources WHERE id=${SOURCE_ID}`;
+  assert.equal(capped!.capped, true);
 });
 
 test("reads vaguely titled hot topics, keeps up to five relevant posts and survives a bridge error", async () => {

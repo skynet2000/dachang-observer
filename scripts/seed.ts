@@ -33,7 +33,7 @@ for (const s of sources) {
   const inserted = await sql`
     INSERT INTO sources (id, name, kind, config, tier, first_party, owner_entity_id, signal_group_id, participation_mode, interval_minutes, tags, site_fulltext, syndicate_fulltext, enabled, next_fetch_at)
     VALUES (${s.id}, ${s.name}, ${s.kind}, ${sql.json(s.config as never)}, ${tier}, ${tier === "T1"}, ${s.owner_entity_id ?? null}, ${s.signal_group_id ?? null},
-            ${s.participation_mode ?? "editorial"}, ${collectionIntervalMinutes() ?? s.interval_minutes ?? 60}, ${s.tags ?? []}, ${s.site_fulltext ?? false}, ${s.syndicate_fulltext ?? false},
+            ${s.participation_mode ?? "editorial"}, ${collectionIntervalMinutes(s.id) ?? s.interval_minutes ?? 60}, ${s.tags ?? []}, ${s.site_fulltext ?? false}, ${s.syndicate_fulltext ?? false},
             ${s.enabled ?? true}, now())
     ON CONFLICT (id) DO NOTHING RETURNING id`;
   added += inserted.length;
