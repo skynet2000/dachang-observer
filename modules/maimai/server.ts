@@ -69,6 +69,7 @@ export async function collectMaimai(readers: { posts?: typeof fetchTopicPosts; r
   let found = 0, created = 0, revised = 0, missingDates = 0, dateLookups = 0, readableTopics = 0;
   const errors: string[] = [];
   let rankError: string | null = null;
+  let timeLookupError: string | null = null;
   let snapshot = source.cursor?.hotTopics as { fetchedAt: number; topics: Candidate[] } | undefined;
   let dateLookupAfter = String(source.cursor?.dateLookupAfter ?? "");
   const cursor = () => ({ initializedAt: source.cursor?.initializedAt ?? new Date().toISOString(), hotTopics: snapshot, dateLookupAfter });
@@ -134,21 +135,24 @@ export async function collectMaimai(readers: { posts?: typeof fetchTopicPosts; r
     }
     if (cookie && !rankError) {
       const offset = undated.indexOf(dateLookupAfter) + 1;
-      for (const id of [...undated.slice(offset), ...undated.slice(0, offset)]) {
+      lookup: for (const id of [...undated.slice(offset), ...undated.slice(0, offset)]) {
         if (times.has(id)) continue;
         const { post } = candidates.get(id)!;
-        const query = post.title.replace(/[\s\p{P}]+/gu, " ").trim().slice(0, 15);
-        if (!query) continue;
-        dateLookupAfter = id;
-        dateLookups++;
-        try {
-          const results = await (readers.times ?? fetchPostTimes)(cookie, query);
-          for (const [matchedId, time] of results) if (!times.has(matchedId)) times.set(matchedId, time);
-        } catch (error) {
-          errors.push(`Post time lookup: ${error instanceof Error ? error.message : String(error)}`);
-          break;
+        const phrase = post.title.replace(/[\s\p{P}]+/gu, " ").trim();
+        for (const query of new Set([phrase.slice(0, 15), phrase.slice(0, 9)])) {
+          if (!query || times.has(id)) break;
+          if (dateLookups >= MAX_DATE_LOOKUPS) break lookup;
+          dateLookupAfter = id;
+          dateLookups++;
+          try {
+            const results = await (readers.times ?? fetchPostTimes)(cookie, query);
+            for (const [matchedId, time] of results) if (!times.has(matchedId)) times.set(matchedId, time);
+          } catch (error) {
+            timeLookupError = error instanceof Error ? error.message : String(error);
+            errors.push(`Post time lookup: ${timeLookupError}`);
+            break lookup;
+          }
         }
-        if (dateLookups >= MAX_DATE_LOOKUPS) break;
       }
     }
     const keptByTopic = new Map<string, number>();
@@ -165,7 +169,7 @@ export async function collectMaimai(readers: { posts?: typeof fetchTopicPosts; r
       if (result.created || result.revised || result.processingNeeded) await queueProcessing(result.articleId);
     }
     if (rankError) throw new FetchError(`Maimai hot rank unavailable; used cached topics: ${rankError}`);
-    if (missingDates && missingDates === highHeat) throw new FetchError("Maimai posts have no usable publication times");
+    if (timeLookupError && missingDates && missingDates === highHeat) throw new FetchError(`Maimai post time lookup unavailable: ${timeLookupError}`);
     await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(), cursor: cursor() });
     return { found, created, ...detail() };
   } catch (error) {

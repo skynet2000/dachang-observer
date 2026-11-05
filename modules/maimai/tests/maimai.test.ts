@@ -110,22 +110,24 @@ test("a missing date, private post, future date and non-platform link never beco
   assert.equal(postMaterial({...valid,url:"https://example.com/100123"},lead,now),null);
 });
 
-test("readable topics with missing publication times fail visibly and create no posts", async () => {
+test("an unmatched time is recorded without backing off, but an unavailable search is a failure", async () => {
   process.env.COLLECT_ENABLED = "true";
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   const missing = { ...post, id: "100999", publish_time: null };
   const candidates = await readers.posts(topics[0]!.url, "share");
   const missingCandidate = { ...candidates[0]!, url: `https://maimai.cn/n/content/gossip-detail/${missing.id}?egid=${egid}&gid=${missing.id}`,
     publishedAt: null, raw: { externalId: missing.id } };
-  await assert.rejects(collectMaimai({ ...readers, posts: async () => [missingCandidate] }), /no usable publication times/);
+  await collectMaimai({ ...readers, posts: async () => [missingCandidate] });
   const [run] = await sql`SELECT status,detail FROM fetch_runs WHERE source_id=${SOURCE_ID} ORDER BY id DESC LIMIT 1`;
-  assert.equal(run!.status, "failed");
+  assert.equal(run!.status, "ok");
   assert.equal(run!.detail.missingDates, 1);
   const [count] = await sql`SELECT count(*)::int AS count FROM articles WHERE identity_key=${`maimai:post:${missing.id}`}`;
   assert.equal(count!.count, 0);
+  await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
+  await assert.rejects(collectMaimai({ ...readers, posts: async () => [missingCandidate], times: async () => { throw new Error("search unavailable"); } }), /post time lookup unavailable/);
 });
 
-test("a post-specific lookup supplies exact time and a repeat run reuses the stored result", async () => {
+test("a shorter post-specific query supplies exact time and a repeat run reuses it", async () => {
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   const lead = { title: "腾讯员工薪酬调整", url: "https://maimai.cn/n/content/global-topic?topic_id=topicC" };
   const id = "101234";
@@ -134,12 +136,12 @@ test("a post-specific lookup supplies exact time and a repeat run reuses the sto
   const queries: string[] = [];
   const direct = { rank: async () => [lead], posts: async () => [candidate], times: async (_cookie: string, query: string) => {
     queries.push(query);
-    return new Map([[id, now]]);
+    return new Map(query === candidate.title.slice(0, 9) ? [[id, now]] : []);
   } };
   const result = await collectMaimai(direct);
   assert("created" in result);
   assert.equal(result.created, 1);
-  assert.deepEqual(queries, [candidate.title]);
+  assert.deepEqual(queries, [candidate.title, candidate.title.slice(0, 9)]);
   const [article] = await sql`SELECT published_at FROM articles WHERE identity_key=${`maimai:post:${id}`}`;
   assert.equal(article!.published_at.toISOString(), now.toISOString());
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
@@ -147,14 +149,14 @@ test("a post-specific lookup supplies exact time and a repeat run reuses the sto
   assert("created" in repeat);
   assert.equal(repeat.created, 0);
   assert.equal(repeat.dateLookups, 0);
-  assert.deepEqual(queries, [candidate.title]);
+  assert.deepEqual(queries, [candidate.title, candidate.title.slice(0, 9)]);
 });
 
 test("an all-missing round advances the bounded search to later posts", async () => {
   const lead = { title: "腾讯员工薪酬调整", url: "https://maimai.cn/n/content/global-topic?topic_id=topicD" };
   const batch = Array.from({ length: 25 }, (_, i) => {
     const id = String(200000 + i);
-    return { title: `第${i}条腾讯员工薪酬调整`, author: "测试用户", bodyText: "我在腾讯工作，今天收到薪酬调整通知，具体适用团队仍不清楚。",
+    return { title: `腾讯薪酬${i}`, author: "测试用户", bodyText: "我在腾讯工作，今天收到薪酬调整通知，具体适用团队仍不清楚。",
       publishedAt: null, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id }, likes: 10, comments: 0 };
   });
   let calls = 0;
@@ -163,7 +165,10 @@ test("an all-missing round advances the bounded search to later posts", async ()
     return new Map(query === batch[24]!.title ? [[batch[24]!.raw.externalId, now]] : []);
   } };
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
-  await assert.rejects(collectMaimai(direct), /no usable publication times/);
+  const first = await collectMaimai(direct);
+  assert("created" in first);
+  assert.equal(first.created, 0);
+  assert.equal(first.missingDates, 25);
   assert.equal(calls, 24);
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   const next = await collectMaimai(direct);
