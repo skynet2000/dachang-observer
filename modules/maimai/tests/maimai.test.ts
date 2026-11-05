@@ -119,3 +119,19 @@ test("a missing date, private post, future date and non-platform link never beco
   assert.equal(postMaterial({...valid,url:"https://example.com/100123"},lead,now),null);
   assert.equal(topicSource({...lead,url:"https://example.com/?topic_id=x"},{} as SourceRow),null);
 });
+
+test("readable topics with missing publication times fail visibly and create no posts", async () => {
+  process.env.COLLECT_ENABLED = "true";
+  await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
+  const missing = { ...post, id: "100999", publish_time: null };
+  const draft = topicSource(topics[0]!, {} as SourceRow)!;
+  const candidates = await readers.posts(draft);
+  const missingCandidate = { ...candidates[0]!, url: `https://maimai.cn/n/content/gossip-detail/${missing.id}?egid=${egid}&gid=${missing.id}`,
+    publishedAt: null, raw: { externalId: missing.id } };
+  await assert.rejects(collectMaimai({ rss: readers.rss, posts: async () => [missingCandidate] }), /no usable publication times/);
+  const [run] = await sql`SELECT status,detail FROM fetch_runs WHERE source_id=${SOURCE_ID} ORDER BY id DESC LIMIT 1`;
+  assert.equal(run!.status, "failed");
+  assert.equal(run!.detail.missingDates, 2);
+  const [count] = await sql`SELECT count(*)::int AS count FROM articles WHERE identity_key=${`maimai:post:${missing.id}`}`;
+  assert.equal(count!.count, 0);
+});

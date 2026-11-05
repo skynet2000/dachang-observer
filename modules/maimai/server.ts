@@ -64,13 +64,13 @@ export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: ty
   if (source.next_fetch_at > new Date()) return { skipped: "not-due" };
   if (source.kind !== "external" || source.participation_mode !== "editorial" || source.config.publicationNotice !== NOTICE) throw new Error("Maimai source publication policy changed");
   const [run] = await sql<{ id: number }[]>`INSERT INTO fetch_runs (source_id) VALUES (${SOURCE_ID}) RETURNING id`;
-  let found = 0, created = 0, revised = 0, rejected = 0;
+  let found = 0, created = 0, revised = 0, rejected = 0, missingDates = 0;
   const errors: string[] = [];
   let topics: Candidate[] = [];
   let readableTopics = 0;
   let rssError: string | null = null;
   let snapshot = source.cursor?.hotTopics as { fetchedAt: number; topics: Candidate[] } | undefined;
-  const detail = () => ({ topics: topics.length, readableTopics, rejected, revised, errors, rssError });
+  const detail = () => ({ topics: topics.length, readableTopics, rejected, revised, missingDates, errors, rssError });
   try {
     try {
       const rss = await (readers.rss ?? fetchRss)(leads, { force: true });
@@ -101,6 +101,7 @@ export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: ty
       }
       readableTopics++;
       found += posts.length;
+      missingDates += posts.filter(post => !post.publishedAt || !Number.isFinite(post.publishedAt.getTime())).length;
       const relevantLead = !noiseFiltered(lead, leads);
       let kept = 0;
       for (const post of posts) {
@@ -121,6 +122,7 @@ export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: ty
       }
     }
     if (!readableTopics) throw new FetchError(errors.join("; ").slice(0, 1500) || "No readable Maimai hot topics");
+    if (found && missingDates === found) throw new FetchError("Maimai posts have no usable publication times");
     await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(),
       cursor: { initializedAt: source.cursor?.initializedAt ?? new Date().toISOString(), hotTopics: snapshot } });
     return { found, created, ...detail() };
