@@ -1,37 +1,33 @@
 import "../../../tests/setup.ts";
 import assert from "node:assert/strict";
-import http from "node:http";
 import { after, before, test } from "node:test";
 import { sql, closeDb } from "@aihot/backend/db";
-import { config } from "@aihot/backend/config";
 import { stopBoss } from "@aihot/backend/jobs/queue";
-import { fetchJsonList } from "@aihot/backend/sources/json-list";
-import { collectMaimai, postMaterial, topicSource, SOURCE_ID, NOTICE } from "../server.ts";
-import type { SourceRow } from "@aihot/backend/sources/types";
+import { collectMaimai, postMaterial, SOURCE_ID, NOTICE } from "../server.ts";
+import { parseTopicPosts, type TopicView } from "../authenticated.ts";
 
 const now = new Date();
 const egid = "a".repeat(32);
-const post = { id: "100123", egid, title: "测试互联网企业员工自述收到岗位调整通知", text: "我在测试互联网企业工作，今天收到岗位调整的协商通知，具体适用部门还不清楚。以上是个人经历，没有企业公告。", author_info: { name: "测试匿名用户", privateId: "do-not-store" }, publish_time: Math.floor(now.getTime()/1000), shareable: 1, ip_loc: "do-not-store", cmts: [{text:"Do not join comments"}] };
+const post = { id: "100123", egid, title: "测试互联网企业员工自述收到岗位调整通知", text: "我在测试互联网企业工作，今天收到岗位调整的协商通知，具体适用部门还不清楚。以上是个人经历，没有企业公告。", author_info: { name: "测试匿名用户", privateId: "do-not-store" }, publish_time: Math.floor(now.getTime()/1000), shareable: 1, likes: 10, ip_loc: "do-not-store", cmts: [{text:"Do not join comments"}] };
 const topics = ["topicA", "topicB"].map(id => ({title:"测试互联网企业员工调整",url:`https://maimai.cn/n/content/global-topic?topic_id=${id}&share_euid=do-not-store`}));
 const vagueTopic = { title: "最近这波变化大家怎么看", url: "https://maimai.cn/n/content/global-topic?topic_id=vague" };
 let badTopic = false;
-const server = http.createServer((_req,res) => {
-  res.setHeader("content-type","text/html");
-  res.end(badTopic ? '<h1>请登录后查看</h1>' : `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({props:{pageProps:{topicFeeds:[post,{...post,id:"100124",publish_time:null},{...post,id:"100125",shareable:0}]}}})}</script>`);
-});
+function topicPage(view: TopicView): string {
+  if (badTopic) return '<h1>请登录后查看</h1>';
+  const rows = [post, {...post,id:"100124",publish_time:null},{...post,id:"100125",shareable:0}];
+  if (view === "share") return `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({props:{pageProps:{topicFeeds:rows}}})}</script>`;
+  return `<script>self.__next_f.push(${JSON.stringify([1, `0:${JSON.stringify({ listDefault: rows })}`])})</script>`;
+}
 const oldCollect=process.env.COLLECT_ENABLED;
 const oldCookie=process.env.MAIMAI_COOKIE;
 before(async()=>{
-  await new Promise<void>(r=>server.listen(0,"127.0.0.1",r));
-  config.allowPrivateNetworkFetch=true;
   process.env.MAIMAI_COOKIE = "test-cookie";
   await sql`INSERT INTO sources(id,name,kind,config,participation_mode,interval_minutes) VALUES
     (${SOURCE_ID},'Maimai public posts','external',${sql.json({publicationNotice:NOTICE})},'editorial',30)`;
 });
-after(async()=>{ if(oldCollect===undefined)delete process.env.COLLECT_ENABLED;else process.env.COLLECT_ENABLED=oldCollect;if(oldCookie===undefined)delete process.env.MAIMAI_COOKIE;else process.env.MAIMAI_COOKIE=oldCookie;await stopBoss();await closeDb();await new Promise<void>(r=>server.close(()=>r())); });
-const base=()=>`http://127.0.0.1:${(server.address() as {port:number}).port}`;
+after(async()=>{ if(oldCollect===undefined)delete process.env.COLLECT_ENABLED;else process.env.COLLECT_ENABLED=oldCollect;if(oldCookie===undefined)delete process.env.MAIMAI_COOKIE;else process.env.MAIMAI_COOKIE=oldCookie;await stopBoss();await closeDb(); });
 const readers={rank: async () => topics, times: async () => new Map<string, Date>(),
-  posts:((s)=>fetchJsonList({...s,config:{...s.config,url:base()+"/topic"}})) as typeof fetchJsonList};
+  posts: async (_url: string, view: TopicView) => parseTopicPosts(topicPage(view), view)};
 
 test("the collection valve prevents every request",async()=>{
   process.env.COLLECT_ENABLED="false";
@@ -75,20 +71,24 @@ test("reads vaguely titled hot topics, keeps up to five relevant posts and repor
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   const candidate = {
     title: "收到新通知", author: "测试用户", bodyText: "我在腾讯工作，今天收到新的薪酬调整通知，具体适用团队仍不清楚。",
-    publishedAt: now, url: `https://maimai.cn/n/content/gossip-detail/100200?egid=${egid}&gid=100200`, raw: { externalId: "100200" },
+    publishedAt: now, url: `https://maimai.cn/n/content/gossip-detail/100200?egid=${egid}&gid=100200`, raw: { externalId: "100200" }, likes: 10, comments: 0,
   };
   const topicPosts = [
     { ...candidate, title: "午饭吃什么", bodyText: "今天和朋友出门吃了一顿饭，聊了一下假期出去旅行的计划。" },
+    { ...candidate, url: `https://maimai.cn/n/content/gossip-detail/100299?egid=${egid}&gid=100299`, raw: { externalId: "100299" }, likes: 1 },
     ...Array.from({ length: 6 }, (_, i) => {
       const id = String(100201 + i);
-      return { ...candidate, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id } };
+      return { ...candidate, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id }, likes: 10, comments: 0 };
     }),
   ];
   const hotRank = async () => [vagueTopic];
   const result = await collectMaimai({ ...readers, rank: hotRank, posts: async () => topicPosts });
   assert("created" in result);
   assert.equal(result.created, 5);
-  assert.equal(result.relevant, 6);
+  assert.equal(result.relevant, 7);
+  assert.equal(result.highHeat, 6);
+  const [lowHeat] = await sql`SELECT id FROM articles WHERE identity_key='maimai:post:100299'`;
+  assert.equal(lowHeat, undefined);
 
   const unavailable = async () => { throw new Error("hot rank unavailable"); };
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
@@ -99,9 +99,8 @@ test("reads vaguely titled hot topics, keeps up to five relevant posts and repor
 });
 
 test("a missing date, private post, future date and non-platform link never become publication material",async()=>{
-  const draft=topicSource(topics[0]!,{} as SourceRow)!;
   badTopic=false;
-  const candidates=await readers.posts(draft);
+  const candidates=await readers.posts(topics[0]!.url, "share");
   assert.equal(candidates.length,2,"the non-shareable post is excluded by the JSON adapter");
   const lead=topics[0]!;const valid=candidates[0]!;
   assert(postMaterial(valid,lead,now));
@@ -109,15 +108,13 @@ test("a missing date, private post, future date and non-platform link never beco
   assert.equal(postMaterial({...valid,publishedAt:new Date(now.getTime()+7200000)},lead,now),null);
   assert.equal(postMaterial({...valid,publishedAt:new Date(now.getTime()-8*86400000)},lead,now),null);
   assert.equal(postMaterial({...valid,url:"https://example.com/100123"},lead,now),null);
-  assert.equal(topicSource({...lead,url:"https://example.com/?topic_id=x"},{} as SourceRow),null);
 });
 
 test("readable topics with missing publication times fail visibly and create no posts", async () => {
   process.env.COLLECT_ENABLED = "true";
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   const missing = { ...post, id: "100999", publish_time: null };
-  const draft = topicSource(topics[0]!, {} as SourceRow)!;
-  const candidates = await readers.posts(draft);
+  const candidates = await readers.posts(topics[0]!.url, "share");
   const missingCandidate = { ...candidates[0]!, url: `https://maimai.cn/n/content/gossip-detail/${missing.id}?egid=${egid}&gid=${missing.id}`,
     publishedAt: null, raw: { externalId: missing.id } };
   await assert.rejects(collectMaimai({ ...readers, posts: async () => [missingCandidate] }), /no usable publication times/);
@@ -133,7 +130,7 @@ test("a post-specific lookup supplies exact time and a repeat run reuses the sto
   const lead = { title: "腾讯员工薪酬调整", url: "https://maimai.cn/n/content/global-topic?topic_id=topicC" };
   const id = "101234";
   const candidate = { title: "腾讯员工收到薪酬调整通知", author: "测试用户", bodyText: "我在腾讯工作，今天收到薪酬调整通知，具体适用团队仍不清楚。",
-    publishedAt: null, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id } };
+    publishedAt: null, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id }, likes: 10, comments: 0 };
   const queries: string[] = [];
   const direct = { rank: async () => [lead], posts: async () => [candidate], times: async (_cookie: string, query: string) => {
     queries.push(query);
@@ -155,22 +152,50 @@ test("a post-specific lookup supplies exact time and a repeat run reuses the sto
 
 test("an all-missing round advances the bounded search to later posts", async () => {
   const lead = { title: "腾讯员工薪酬调整", url: "https://maimai.cn/n/content/global-topic?topic_id=topicD" };
-  const batch = Array.from({ length: 13 }, (_, i) => {
+  const batch = Array.from({ length: 25 }, (_, i) => {
     const id = String(200000 + i);
     return { title: `第${i}条腾讯员工薪酬调整`, author: "测试用户", bodyText: "我在腾讯工作，今天收到薪酬调整通知，具体适用团队仍不清楚。",
-      publishedAt: null, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id } };
+      publishedAt: null, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id }, likes: 10, comments: 0 };
   });
   let calls = 0;
   const direct = { rank: async () => [lead], posts: async () => batch, times: async (_cookie: string, query: string) => {
     calls++;
-    return new Map(query === batch[12]!.title ? [[batch[12]!.raw.externalId, now]] : []);
+    return new Map(query === batch[24]!.title ? [[batch[24]!.raw.externalId, now]] : []);
   } };
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   await assert.rejects(collectMaimai(direct), /no usable publication times/);
-  assert.equal(calls, 12);
+  assert.equal(calls, 24);
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   const next = await collectMaimai(direct);
   assert("created" in next);
   assert.equal(next.created, 1);
-  assert.equal(next.missingDates, 12);
+  assert.equal(next.missingDates, 24);
+});
+
+test("a high-heat post from the latest view is collected and duplicate views preserve the exact time", async () => {
+  await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
+  const shared = { ...post, id: "300101", likes: 0 };
+  const latest = [
+    { ...shared, publish_time: null, cmts: 5 },
+    { ...post, id: "300102", likes: 12 },
+    { ...post, id: "300103", likes: 2 },
+  ];
+  const result = await collectMaimai({
+    ...readers, rank: async () => [topics[0]!],
+    posts: async (_url, view) => {
+      const html = view === "share"
+        ? `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { topicFeeds: [shared] } } })}</script>`
+        : `<script>self.__next_f.push(${JSON.stringify([1, `0:${JSON.stringify({ listDefault: latest })}`])})</script>`;
+      return parseTopicPosts(html, view);
+    },
+  });
+  assert("created" in result);
+  assert.equal(result.uniquePosts, 3);
+  assert.equal(result.latestOnly, 2);
+  assert.equal(result.highHeat, 2);
+  assert.equal(result.created, 2);
+  assert.equal(result.dateLookups, 0);
+  const rows = await sql`SELECT identity_key,published_at FROM articles WHERE identity_key LIKE 'maimai:post:30010%' ORDER BY identity_key`;
+  assert.deepEqual(rows.map(row => row.identity_key), ["maimai:post:300101", "maimai:post:300102"]);
+  assert.equal(rows[0]!.published_at.toISOString(), new Date(post.publish_time * 1000).toISOString());
 });

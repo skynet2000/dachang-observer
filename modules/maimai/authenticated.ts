@@ -1,13 +1,15 @@
 import { load } from "cheerio";
 import { fetchListing } from "@aihot/backend/sources/listing-fetch";
+import { collapseWhitespace, stripTags } from "@aihot/backend/lib/text";
+import { getPath } from "@aihot/backend/sources/json-list";
 import { parseLooseDate } from "@aihot/backend/sources/dates";
 import { FetchError, type Candidate } from "@aihot/backend/sources/types";
 
 const BASE = "https://maimai.cn";
 const USER_AGENT = "Mozilla/5.0 Chrome/145.0.0.0 Safari/537.36";
 
-function headers(cookie: string): Record<string, string> {
-  return { cookie, accept: "text/html", "user-agent": USER_AGENT };
+function headers(cookie?: string | null): Record<string, string> {
+  return { ...(cookie ? { cookie } : {}), accept: "text/html", "user-agent": USER_AGENT };
 }
 
 function jsonArrayAt(text: string, start: number): unknown[] | null {
@@ -30,8 +32,7 @@ function jsonArrayAt(text: string, start: number): unknown[] | null {
   return null;
 }
 
-/** Only accept the official hot-topic array, never the personalized feed or company-circle posts. */
-export function parseHotRank(html: string): Candidate[] {
+function flightPayload(html: string): string {
   const $ = load(html);
   let flight = "";
   for (const script of $("script").toArray()) {
@@ -42,6 +43,12 @@ export function parseHotRank(html: string): Candidate[] {
       if (typeof payload[1] === "string") flight += payload[1];
     } catch { /* Other scripts are not Flight payloads. */ }
   }
+  return flight;
+}
+
+/** Only accept the official hot-topic array, never the personalized feed or company-circle posts. */
+export function parseHotRank(html: string): Candidate[] {
+  const flight = flightPayload(html);
   const marker = '"data":[';
   for (let from = 0, index = flight.indexOf(marker); index >= 0; index = flight.indexOf(marker, from)) {
     from = index + marker.length;
@@ -67,6 +74,56 @@ export async function fetchAuthenticatedHotRank(cookie: string): Promise<Candida
   const res = await fetchListing(`${BASE}/community/hot-rank`, { redirectPolicy: "same-origin", headers: headers(cookie) });
   if (res.status !== 200 || new URL(res.url).pathname.includes("/login")) throw new FetchError("Maimai session expired or hot rank unavailable");
   return parseHotRank(res.text());
+}
+
+export type TopicPost = Candidate & { likes: number; comments: number };
+export type TopicView = "share" | "crtime";
+
+function postCount(value: unknown): number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+
+export function parseTopicPosts(html: string, view: TopicView): TopicPost[] {
+  let rows: unknown;
+  if (view === "share") {
+    const data = load(html)("#__NEXT_DATA__").text();
+    if (data) rows = getPath(JSON.parse(data), "props.pageProps.topicFeeds");
+  } else {
+    const flight = flightPayload(html);
+    const marker = '"listDefault":[';
+    const at = flight.indexOf(marker);
+    if (at >= 0) rows = jsonArrayAt(flight, at + marker.length - 1);
+  }
+  if (!Array.isArray(rows)) throw new FetchError(`Maimai ${view === "share" ? "topicFeeds" : "topic post list"} not found`);
+  const posts: TopicPost[] = [];
+  for (const row of rows) {
+    if (!row || row.shareable !== 1 || typeof row.text !== "string") continue;
+    const id = String(row.id ?? ""), egid = row.egid;
+    if (!/^\d+$/.test(id) || typeof egid !== "string" || !/^[a-f0-9]{32}$/i.test(egid)) continue;
+    const bodyText = stripTags(row.text);
+    const title = (typeof row.title === "string" ? collapseWhitespace(stripTags(row.title)) : "") || collapseWhitespace(bodyText);
+    if (!title) continue;
+    const author = getPath(row, "author_info.name");
+    const seconds = String(row.publish_time ?? "");
+    posts.push({
+      url: `${BASE}/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, title, bodyText,
+      author: typeof author === "string" ? author.trim() : null,
+      excerpt: collapseWhitespace(bodyText).slice(0, 2000),
+      publishedAt: /^\d{10}$/.test(seconds) ? new Date(Number(seconds) * 1000) : null,
+      raw: { externalId: id }, likes: postCount(row.likes), comments: postCount(row.cmts),
+    });
+  }
+  return posts;
+}
+
+export async function fetchTopicPosts(topicUrl: string, view: TopicView, cookie: string | null): Promise<TopicPost[]> {
+  const topicId = new URL(topicUrl).searchParams.get("topic_id");
+  if (!topicId || !/^[\w-]{1,40}$/.test(topicId)) throw new FetchError("Invalid Maimai topic ID");
+  const url = view === "share" ? `${BASE}/n/content/global-topic?circle_type=9&topic_id=${topicId}` : `${BASE}/community/topic-detail/${topicId}/${view}`;
+  const res = await fetchListing(url, { redirectPolicy: "same-origin", headers: headers(view === "share" ? null : cookie), timeoutMs: 12_000 });
+  if (new URL(res.url).pathname.includes("/login")) throw new FetchError(`Maimai ${view} topic requires login`, 401);
+  if (res.status !== 200) throw new FetchError(`Maimai ${view} topic unavailable`, res.status);
+  return parseTopicPosts(res.text(), view);
 }
 
 /** A search result can supply a timestamp only when its post ID exactly matches. */
