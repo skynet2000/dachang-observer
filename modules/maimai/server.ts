@@ -1,5 +1,7 @@
-// Public hot topics discover individual posts; no login, comments, private identifiers or model calls here.
+// Discover public hot topics and posts; no comments, private identifiers or model calls are retained here.
 import { MAIMAI_COLLECTION } from "@aihot/site";
+import { credential } from "@aihot/backend/config";
+import { fetchAuthenticatedHotRank, fetchPostTimes } from "./authenticated.ts";
 import { sql } from "@aihot/backend/db";
 import { defineQueue, type ServerModule } from "@aihot/backend/modules";
 import { enqueueOn } from "@aihot/backend/jobs/queue";
@@ -56,7 +58,7 @@ export function postMaterial(post: Candidate, lead: Candidate, now: Date): (Mate
     raw: { platform: "maimai", postId: id, topicUrl: canonicalTopicUrl(lead.url) } };
 }
 
-export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: typeof fetchJsonList } = {}) {
+export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: typeof fetchJsonList; rank?: typeof fetchAuthenticatedHotRank; times?: typeof fetchPostTimes } = {}) {
   if (process.env.COLLECT_ENABLED !== "true") return { skipped: "collection-disabled" };
   const [source] = await sql<(SourceRow & { next_fetch_at: Date })[]>`SELECT * FROM sources WHERE id = ${SOURCE_ID}`;
   const [leads] = await sql<SourceRow[]>`SELECT * FROM sources WHERE id = ${LEADS_ID}`;
@@ -69,6 +71,8 @@ export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: ty
   let topics: Candidate[] = [];
   let readableTopics = 0;
   let rssError: string | null = null;
+  const cookie = credential("collectors", "MAIMAI_COOKIE");
+  let dateLookups = 0;
   let snapshot = source.cursor?.hotTopics as { fetchedAt: number; topics: Candidate[] } | undefined;
   const detail = () => ({ topics: topics.length, readableTopics, rejected, revised, missingDates, errors, rssError });
   try {
@@ -84,7 +88,16 @@ export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: ty
       snapshot = { fetchedAt: Date.now(), topics: [...unique.values()] };
     } catch (error) {
       rssError = error instanceof Error ? error.message : String(error);
-      if (!snapshot || Date.now() - snapshot.fetchedAt >= DAY) throw error;
+      if (cookie && (!readers.rss || readers.rank)) {
+        try {
+          const candidates = await (readers.rank ?? fetchAuthenticatedHotRank)(cookie);
+          snapshot = { fetchedAt: Date.now(), topics: candidates };
+          await sql`UPDATE sources SET cursor = jsonb_set(coalesce(cursor, '{}'::jsonb), '{hotTopics}', ${sql.json(snapshot as never)}::jsonb) WHERE id = ${SOURCE_ID}`;
+        } catch (fallbackError) {
+          errors.push(`Authenticated hot rank: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+          if (!snapshot || Date.now() - snapshot.fetchedAt >= DAY) throw fallbackError;
+        }
+      } else if (!snapshot || Date.now() - snapshot.fetchedAt >= DAY) throw error;
     }
     topics = snapshot.topics;
     const seen = new Set<string>();
@@ -104,12 +117,32 @@ export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: ty
       missingDates += posts.filter(post => !post.publishedAt || !Number.isFinite(post.publishedAt.getTime())).length;
       const relevantLead = !noiseFiltered(lead, leads);
       let kept = 0;
+      let times: Map<string, Date> | null = null;
       for (const post of posts) {
         if (kept >= MAX_POSTS_PER_TOPIC) break;
+        if (!relevantLead && noiseFiltered({ ...post, title: `${post.title}\n${post.bodyText}` }, leads)) {
+          rejected++;
+          continue;
+        }
+        if (!post.publishedAt && cookie && (!readers.posts || readers.times)) {
+          const id = String((post.raw as { externalId?: unknown } | null)?.externalId ?? "");
+          if (!times && dateLookups < 5) {
+            dateLookups++;
+            const company = lead.title.match(/混元Hy4|阿里巴巴|阿里|淘宝|天猫|蚂蚁|字节跳动|字节|抖音|腾讯|微信|美团|京东|拼多多|小红书|百度|快手|滴滴|网易|小米|华为|Canva|DeepSeek/i)?.[0];
+            const query = company ?? lead.title.slice(0, 20);
+            try { times = await (readers.times ?? fetchPostTimes)(cookie, query); }
+            catch (error) {
+              times = new Map();
+              errors.push(`Post time lookup: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
+          const time = times?.get(id);
+          if (time) { post.publishedAt = time; missingDates--; }
+        }
         const material = postMaterial(post, lead, new Date());
         // A vague hot-topic headline can lead to a useful post. In that case the post itself must
         // supply both the employer and the workplace context before the usual editorial review.
-        if (!material || (!relevantLead && noiseFiltered({ ...post, title: `${post.title}\n${post.bodyText}` }, leads))) {
+        if (!material) {
           rejected++;
           continue;
         }

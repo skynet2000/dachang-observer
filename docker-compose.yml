@@ -58,6 +58,10 @@ services:
 
   worker:
     <<: *backend
+    env_file:
+      - .env
+      - path: .env.maimai
+        required: false
     command: ["node", "apps/worker/src/main.ts"]
     # On stop the worker lets a paid call in flight finish (STOP_TIMEOUT_MS, 195 s); Docker's default
     # 10 s would kill it mid-call and leave "outcome unknown" receipts that are paid for again.

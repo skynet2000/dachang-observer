@@ -135,3 +135,29 @@ test("readable topics with missing publication times fail visibly and create no 
   const [count] = await sql`SELECT count(*)::int AS count FROM articles WHERE identity_key=${`maimai:post:${missing.id}`}`;
   assert.equal(count!.count, 0);
 });
+
+test("authenticated hot rank recovers a post only with a matching exact publication time", async () => {
+  process.env.COLLECT_ENABLED = "true";
+  process.env.MAIMAI_COOKIE = "test-cookie";
+  try {
+    await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
+    const lead = { title: "腾讯员工薪酬调整", url: "https://maimai.cn/n/content/global-topic?topic_id=topicC" };
+    const id = "101234";
+    const candidate = { title: "腾讯员工收到薪酬调整通知", author: "测试用户", bodyText: "我在腾讯工作，今天收到薪酬调整通知，具体适用团队仍不清楚。",
+      publishedAt: null, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id } };
+    const result = await collectMaimai({
+      rss: async () => { throw new Error("bridge unavailable"); },
+      rank: async () => [lead],
+      posts: async () => [candidate],
+      times: async () => new Map([[id, now]]),
+    });
+    assert("created" in result);
+    assert.equal(result.created, 1);
+    const [article] = await sql`SELECT published_at FROM articles WHERE identity_key=${`maimai:post:${id}`}`;
+    assert.equal(article!.published_at.toISOString(), now.toISOString());
+    const [source] = await sql`SELECT cursor FROM sources WHERE id=${SOURCE_ID}`;
+    assert.equal(source!.cursor.hotTopics.topics[0].title, lead.title);
+  } finally {
+    delete process.env.MAIMAI_COOKIE;
+  }
+});
