@@ -68,7 +68,7 @@ test("login or missing post data is a recorded failure, never a healthy empty to
 });
 
 test("reads vaguely titled hot topics, keeps up to five relevant posts and reports a rank outage even with cached topics", async () => {
-  await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
+  await sql`UPDATE sources SET next_fetch_at=now(), cursor=NULL WHERE id=${SOURCE_ID}`;
   const candidate = {
     title: "收到新通知", author: "测试用户", bodyText: "我在腾讯工作，今天收到新的薪酬调整通知，具体适用团队仍不清楚。",
     publishedAt: now, url: `https://maimai.cn/n/content/gossip-detail/100200?egid=${egid}&gid=100200`, raw: { externalId: "100200" }, likes: 10, comments: 0,
@@ -154,7 +154,7 @@ test("a shorter post-specific query supplies exact time and a repeat run reuses 
 
 test("an all-missing round advances the bounded search to later posts", async () => {
   const lead = { title: "腾讯员工薪酬调整", url: "https://maimai.cn/n/content/global-topic?topic_id=topicD" };
-  const batch = Array.from({ length: 25 }, (_, i) => {
+  const batch = Array.from({ length: 13 }, (_, i) => {
     const id = String(200000 + i);
     return { title: `腾讯薪酬${i}`, author: "测试用户", bodyText: "我在腾讯工作，今天收到薪酬调整通知，具体适用团队仍不清楚。",
       publishedAt: null, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id }, likes: 10, comments: 0 };
@@ -162,19 +162,19 @@ test("an all-missing round advances the bounded search to later posts", async ()
   let calls = 0;
   const direct = { rank: async () => [lead], posts: async () => batch, times: async (_cookie: string, query: string) => {
     calls++;
-    return new Map(query === batch[24]!.title ? [[batch[24]!.raw.externalId, now]] : []);
+    return new Map(query === batch[12]!.title ? [[batch[12]!.raw.externalId, now]] : []);
   } };
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   const first = await collectMaimai(direct);
   assert("created" in first);
   assert.equal(first.created, 0);
-  assert.equal(first.missingDates, 25);
+  assert.equal(first.missingDates, 13);
   assert.equal(calls, 24);
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   const next = await collectMaimai(direct);
   assert("created" in next);
   assert.equal(next.created, 1);
-  assert.equal(next.missingDates, 24);
+  assert.equal(next.missingDates, 12);
 });
 
 test("a high-heat post from the latest view is collected and duplicate views preserve the exact time", async () => {
@@ -203,4 +203,35 @@ test("a high-heat post from the latest view is collected and duplicate views pre
   const rows = await sql`SELECT identity_key,published_at FROM articles WHERE identity_key LIKE 'maimai:post:30010%' ORDER BY identity_key`;
   assert.deepEqual(rows.map(row => row.identity_key), ["maimai:post:300101", "maimai:post:300102"]);
   assert.equal(rows[0]!.published_at.toISOString(), new Date(post.publish_time * 1000).toISOString());
+});
+
+test("a recently dropped topic can yield a newly hot post with a time matched by its body", async () => {
+  const older = { ...topics[0]!, url: "https://maimai.cn/n/content/global-topic?topic_id=dropped" };
+  const expired = { ...topics[0]!, url: "https://maimai.cn/n/content/global-topic?topic_id=expired" };
+  const cursor = {
+    initializedAt: now.toISOString(),
+    hotTopics: { fetchedAt: Date.now() - 3600000, topics: [older] },
+    recentHotTopics: [{ lastSeenAt: Date.now() - 90000000, topic: expired }],
+  };
+  await sql`UPDATE sources SET cursor=${sql.json(cursor)}, next_fetch_at=now() WHERE id=${SOURCE_ID}`;
+  const [candidate] = await readers.posts(older.url, "share");
+  const id = "310001";
+  const body = "我在腾讯参与过这个团队刚公布的薪酬调整涉及部门暂未收到完整说明";
+  const requested = new Set<string>();
+  const result = await collectMaimai({
+    rank: async () => [topics[1]!],
+    posts: async url => {
+      const topic = new URL(url).searchParams.get("topic_id")!;
+      requested.add(topic);
+      return topic === "dropped" ? [{ ...candidate!, title: "关于这次消息的一点补充", bodyText: body, publishedAt: null,
+        url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, raw: { externalId: id }, likes: 3, comments: 5 }] : [];
+    },
+    times: async (_cookie, query) => new Map(query === body.slice(5, 18) ? [[id, now]] : []),
+  });
+  assert("created" in result);
+  assert.equal(result.followupTopics, 1);
+  assert.equal(result.created, 1);
+  assert.deepEqual([...requested], ["topicB", "dropped"]);
+  const [stored] = await sql`SELECT published_at FROM articles WHERE identity_key=${`maimai:post:${id}`}`;
+  assert.equal(stored!.published_at.toISOString(), now.toISOString());
 });

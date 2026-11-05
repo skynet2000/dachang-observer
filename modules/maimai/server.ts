@@ -19,6 +19,10 @@ const DAY = 86400000;
 const WEEK = 7 * 86400000;
 const MAX_DATE_LOOKUPS = 24;
 const MAX_POSTS_PER_TOPIC = 5;
+const MAX_RECENT_TOPICS = 6;
+
+type HotSnapshot = { fetchedAt: number; topics: Candidate[] };
+type RecentTopic = { lastSeenAt: number; topic: Candidate };
 
 function canonicalTopicUrl(input: string): string | null {
   const url = URL.parse(input);
@@ -70,11 +74,12 @@ export async function collectMaimai(readers: { posts?: typeof fetchTopicPosts; r
   const errors: string[] = [];
   let rankError: string | null = null;
   let timeLookupError: string | null = null;
-  let snapshot = source.cursor?.hotTopics as { fetchedAt: number; topics: Candidate[] } | undefined;
+  let snapshot = source.cursor?.hotTopics as HotSnapshot | undefined;
+  let recentTopics = (source.cursor?.recentHotTopics ?? []) as RecentTopic[];
   let dateLookupAfter = String(source.cursor?.dateLookupAfter ?? "");
-  const cursor = () => ({ initializedAt: source.cursor?.initializedAt ?? new Date().toISOString(), hotTopics: snapshot, dateLookupAfter });
+  const scanState = () => ({ hotTopics: snapshot, recentHotTopics: recentTopics, dateLookupAfter });
   const detail = () => ({
-    topics: snapshot?.topics.length ?? 0, readableTopics, latestTopics,
+    topics: snapshot?.topics.length ?? 0, followupTopics: recentTopics.length, readableTopics, latestTopics,
     uniquePosts: new Set([...seen.share, ...seen.crtime]).size,
     latestOnly: [...seen.crtime].filter(id => !seen.share.has(id)).length,
     relevant: candidates.size, highHeat, latestOnlyHighHeat, revised, missingDates, dateLookups, errors, rankError,
@@ -82,13 +87,26 @@ export async function collectMaimai(readers: { posts?: typeof fetchTopicPosts; r
   try {
     try {
       if (!cookie) throw new FetchError("Maimai session is not configured");
-      snapshot = { fetchedAt: Date.now(), topics: await (readers.rank ?? fetchAuthenticatedHotRank)(cookie) };
+      const current = await (readers.rank ?? fetchAuthenticatedHotRank)(cookie);
+      const previous = snapshot;
+      if (previous) {
+        recentTopics = [...previous.topics.map(topic => ({ topic, lastSeenAt: previous.fetchedAt })), ...recentTopics];
+      }
+      snapshot = { fetchedAt: Date.now(), topics: current };
     } catch (error) {
       rankError = error instanceof Error ? error.message : String(error);
       if (!snapshot || Date.now() - snapshot.fetchedAt >= DAY) throw error;
     }
+    const currentUrls = new Set(snapshot.topics.map(topic => canonicalTopicUrl(topic.url)));
+    const cutoff = Date.now() - DAY;
+    recentTopics = recentTopics.filter(({ topic, lastSeenAt }) => {
+      const url = canonicalTopicUrl(topic.url);
+      if (!url || lastSeenAt < cutoff || currentUrls.has(url)) return false;
+      currentUrls.add(url);
+      return true;
+    }).slice(0, MAX_RECENT_TOPICS);
     let readLatest = !!cookie && !rankError;
-    for (const lead of snapshot.topics) {
+    for (const lead of [...snapshot.topics, ...recentTopics.map(({ topic }) => topic)]) {
       const url = canonicalTopicUrl(lead.url);
       if (!url) continue;
       const views: TopicView[] = readLatest ? ["share", "crtime"] : ["share"];
@@ -139,8 +157,12 @@ export async function collectMaimai(readers: { posts?: typeof fetchTopicPosts; r
         if (times.has(id)) continue;
         const { post } = candidates.get(id)!;
         const phrase = post.title.replace(/[\s\p{P}]+/gu, " ").trim();
-        for (const query of new Set([phrase.slice(0, 15), phrase.slice(0, 9)])) {
-          if (!query || times.has(id)) break;
+        const bodyPhrase = post.bodyText?.replace(/[\s\p{P}]+/gu, " ").trim().slice(5, 18);
+        const queries = new Set([phrase.slice(0, 15), phrase.slice(0, 9)]);
+        if (bodyPhrase && bodyPhrase.length >= 9) queries.add(bodyPhrase);
+        for (const query of queries) {
+          if (times.has(id)) break;
+          if (!query) continue;
           if (dateLookups >= MAX_DATE_LOOKUPS) break lookup;
           dateLookupAfter = id;
           dateLookups++;
@@ -170,11 +192,13 @@ export async function collectMaimai(readers: { posts?: typeof fetchTopicPosts; r
     }
     if (rankError) throw new FetchError(`Maimai hot rank unavailable; used cached topics: ${rankError}`);
     if (timeLookupError && missingDates && missingDates === highHeat) throw new FetchError(`Maimai post time lookup unavailable: ${timeLookupError}`);
-    await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(), cursor: cursor() });
+    await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(), cursor: {
+      initializedAt: source.cursor?.initializedAt ?? new Date().toISOString(), ...scanState(),
+    } });
     return { found, created, ...detail() };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (snapshot) await sql`UPDATE sources SET cursor = coalesce(sources.cursor, '{}'::jsonb) || ${sql.json({ hotTopics: snapshot, dateLookupAfter } as never)}::jsonb WHERE id = ${SOURCE_ID}`;
+    if (snapshot) await sql`UPDATE sources SET cursor = coalesce(sources.cursor, '{}'::jsonb) || ${sql.json(scanState() as never)}::jsonb WHERE id = ${SOURCE_ID}`;
     await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(), error: message, budget: false, maxBackoffMinutes: MAIMAI_COLLECTION.maxBackoffMinutes });
     throw error;
   }
