@@ -630,3 +630,23 @@ test("a correction between snapshot pages arrives through changes after the fixe
     ({ op: change.op, id: change.item.id, title: change.item.title })), [{ op: 'upsert', id, title }],
   'the client applies the correction once after finishing the original snapshot');
 });
+
+test("Maimai awaits editorial admission before detail, Markdown or sharing become public", async () => {
+  const source = "external-maimai-posts";
+  await sql`INSERT INTO sources(id,name,kind,config,participation_mode)
+    VALUES (${source}, '脉脉', 'external', ${sql.json({publicationNotice:"未经独立核实"})}, 'editorial')`;
+  const {articleId:id} = await upsertMaterial({sourceId:source,url:`https://example.com/maimai-${T}`,title:'用户自述工作变动',publishedAt:new Date(),via:'ingest'});
+  await publishArticle(id);
+  assert.equal((await get(`/api/site/items/${id}`)).status, 404);
+  assert.equal(await loadItemShare(id), null);
+  await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,summary_zh,selected) VALUES (${id},1,'rule','block','用户自行描述工作变动。',false)`;
+  await publishArticle(id);
+  assert.equal((await get(`/api/site/items/${id}`)).status, 404);
+  assert.equal((await get(`/items/${id}/markdown`)).status, 404);
+  await sql`UPDATE analyses SET relevance='pass' WHERE article_id=${id}`;
+  await publishArticle(id);
+  const detail = await get(`/api/site/items/${id}`);
+  assert.equal(detail.status, 200);
+  assert.match(JSON.parse(detail.body).summary, /^【未经独立核实】/);
+  assert(await loadItemShare(id));
+});

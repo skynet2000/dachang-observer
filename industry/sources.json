@@ -6202,8 +6202,8 @@
       "config": {
         "url": "https://www.anthropic.com/news",
         "parseMode": "html",
-        "itemSelector": "[class*=\"TableView-module\"][class*=\"__row\"]",
-        "linkSelector": "a[class*=\"title-link\"]",
+        "itemSelector": "[class$=\"_row\"]:has(a[class$=\"_title-link\"][href^=\"/news/\"])",
+        "linkSelector": "a[class$=\"_title-link\"][href^=\"/news/\"]",
         "titleSelector": "h3",
         "publishedAtSelector": "time",
         "publishedAtUtcOffset": "+00:00",

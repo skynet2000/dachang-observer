@@ -2,7 +2,7 @@
 // manual overrides and grouping, then record selected-set changes in the sync ledger.
 // Rebuilding only re-reads stored results; it never calls a model.
 import { toPublicApiCategory } from "@aihot/contracts/taxonomy";
-import { SITE } from "@aihot/site";
+import { MAIMAI_COLLECTION, SITE } from "@aihot/site";
 import { one, sql, type Tx } from "../db.ts";
 import { audit } from "../audit.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -298,15 +298,15 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const score = f.score === null || typeof f.score === "number" ? f.score : analysis?.score ?? null;
   const relevance = typeof f.relevance === "string" ? (f.relevance as string) : analysis?.relevance ?? null;
   const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : analysis?.selected ?? null;
-  // Material from an isolated source reaches no public surface at all: not even a detail page.
-  const visibility = source.participation_mode === "isolated" ? "withdrawn" : (override?.visibility ?? "public");
-
   // An undated archive has a readable detail page, but its discovery is not a news timestamp.
   // Explicit imports can retain an editorial decision already published elsewhere.
   const scope = typeof f.scope === 'string' ? f.scope : analysis?.scope;
   const eligible = isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary, originalPost: !!original,
     scope, category, editorialSelection: f.selected === true })
     && (!article.backfill || article.published_at !== null || !!options.releasedAt);
+  // Unverified Maimai posts need an editorial decision before any public surface can show them.
+  const visibility = source.participation_mode === "isolated" || (source.id === MAIMAI_COLLECTION.sourceId && !eligible)
+    ? "withdrawn" : (override?.visibility ?? "public");
   const selectionCandidate = isSelectable(eligible, judgedSelected, source.tier);
   // Scoring nominates a report; a completed identity/value decision admits it to selection.
   // A historical import already has its public decision. Preserve that confirmed state on rebuild.
