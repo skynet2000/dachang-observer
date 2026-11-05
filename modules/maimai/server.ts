@@ -8,17 +8,17 @@ import { enqueueOn } from "@aihot/backend/jobs/queue";
 import { queueProcessing } from "@aihot/backend/jobs/content";
 import { upsertMaterial, FUTURE_TOLERANCE_MS, type MaterialInput } from "@aihot/backend/content/materials";
 import { recordFetch } from "@aihot/backend/sources/collect";
-import { fetchRss } from "@aihot/backend/sources/rss";
 import { fetchJsonList } from "@aihot/backend/sources/json-list";
 import { noiseFiltered } from "@aihot/backend/sources/filters";
 import { FetchError, type Candidate, type SourceRow } from "@aihot/backend/sources/types";
 
+import scope from "./scope.json" with { type: "json" };
+
 export const SOURCE_ID = MAIMAI_COLLECTION.sourceId;
 export const NOTICE = "未经独立核实";
-const LEADS_ID = "rss-maimai-hot";
 const DAY = 86400000;
 const WEEK = 7 * 86400000;
-const MAX_TOPICS = 15;
+const MAX_DATE_LOOKUPS = 12;
 const MAX_POSTS_PER_TOPIC = 5;
 
 function canonicalTopicUrl(input: string): string | null {
@@ -41,15 +41,21 @@ export function topicSource(lead: Candidate, source: SourceRow): SourceRow | nul
   } };
 }
 
-export function postMaterial(post: Candidate, lead: Candidate, now: Date): (MaterialInput & { identityKey: string }) | null {
+function publicPostId(post: Candidate): string | null {
   const id = String((post.raw as { externalId?: unknown } | null)?.externalId ?? "");
-  const url = new URL(post.url);
-  const at = post.publishedAt;
-  if (!/^\d+$/.test(id) || url.origin !== "https://maimai.cn" || url.pathname !== `/n/content/gossip-detail/${id}`
+  const url = URL.parse(post.url);
+  if (!/^\d+$/.test(id) || url?.origin !== "https://maimai.cn" || url.pathname !== `/n/content/gossip-detail/${id}`
     || url.searchParams.get("gid") !== id || !/^[a-f0-9]{32}$/i.test(url.searchParams.get("egid") ?? "")) return null;
-  if (!at || !Number.isFinite(at.getTime()) || at.getTime() > now.getTime() + FUTURE_TOLERANCE_MS || now.getTime() - at.getTime() > WEEK) return null;
   if (!post.bodyText || post.bodyText.trim().length < 20 || !post.author?.trim()) return null;
-  const original = post.bodyText.trim();
+  return id;
+}
+
+export function postMaterial(post: Candidate, lead: Candidate, now: Date): (MaterialInput & { identityKey: string }) | null {
+  const id = publicPostId(post);
+  const at = post.publishedAt;
+  if (!id || !at || !Number.isFinite(at.getTime()) || at.getTime() > now.getTime() + FUTURE_TOLERANCE_MS || now.getTime() - at.getTime() > WEEK) return null;
+  const url = new URL(post.url);
+  const original = post.bodyText!.trim();
   const body = `原帖署名：${post.author}（未核验真实身份或任职）\n证据状态：${NOTICE}，用户发言不代表公司确认；听说、猜测与亲历必须分开。\n\n原帖正文：\n${original}`;
   // Keep only the post's public identity and topic link, never the page's user/profile/location fields.
   return { sourceId: SOURCE_ID, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${url.searchParams.get("egid")}&gid=${id}`,
@@ -58,50 +64,32 @@ export function postMaterial(post: Candidate, lead: Candidate, now: Date): (Mate
     raw: { platform: "maimai", postId: id, topicUrl: canonicalTopicUrl(lead.url) } };
 }
 
-export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: typeof fetchJsonList; rank?: typeof fetchAuthenticatedHotRank; times?: typeof fetchPostTimes } = {}) {
+export async function collectMaimai(readers: { posts?: typeof fetchJsonList; rank?: typeof fetchAuthenticatedHotRank; times?: typeof fetchPostTimes } = {}) {
   if (process.env.COLLECT_ENABLED !== "true") return { skipped: "collection-disabled" };
   const [source] = await sql<(SourceRow & { next_fetch_at: Date })[]>`SELECT * FROM sources WHERE id = ${SOURCE_ID}`;
-  const [leads] = await sql<SourceRow[]>`SELECT * FROM sources WHERE id = ${LEADS_ID}`;
-  if (!source?.enabled || !leads?.enabled) return { skipped: "source-disabled" };
+  if (!source?.enabled) return { skipped: "source-disabled" };
   if (source.next_fetch_at > new Date()) return { skipped: "not-due" };
   if (source.kind !== "external" || source.participation_mode !== "editorial" || source.config.publicationNotice !== NOTICE) throw new Error("Maimai source publication policy changed");
   const [run] = await sql<{ id: number }[]>`INSERT INTO fetch_runs (source_id) VALUES (${SOURCE_ID}) RETURNING id`;
-  let found = 0, created = 0, revised = 0, rejected = 0, missingDates = 0;
-  const errors: string[] = [];
-  let topics: Candidate[] = [];
-  let readableTopics = 0;
-  let rssError: string | null = null;
   const cookie = credential("collectors", "MAIMAI_COOKIE");
-  let dateLookups = 0;
+  const filter = { ...source, config: { ingestNoiseFilter: scope } };
+  const candidates = new Map<string, { post: Candidate; lead: Candidate }>();
+  let found = 0, created = 0, revised = 0, missingDates = 0, dateLookups = 0, readableTopics = 0;
+  const errors: string[] = [];
+  let rankError: string | null = null;
   let snapshot = source.cursor?.hotTopics as { fetchedAt: number; topics: Candidate[] } | undefined;
-  const detail = () => ({ topics: topics.length, readableTopics, rejected, revised, missingDates, errors, rssError });
+  let dateLookupAfter = String(source.cursor?.dateLookupAfter ?? "");
+  const cursor = () => ({ initializedAt: source.cursor?.initializedAt ?? new Date().toISOString(), hotTopics: snapshot, dateLookupAfter });
+  const detail = () => ({ topics: snapshot?.topics.length ?? 0, readableTopics, relevant: candidates.size, revised, missingDates, dateLookups, errors, rankError });
   try {
     try {
-      const rss = await (readers.rss ?? fetchRss)(leads, { force: true });
-      const unique = new Map<string, Candidate>();
-      for (const lead of rss.candidates) {
-        const url = canonicalTopicUrl(lead.url);
-        if (url && !unique.has(url)) unique.set(url, { url, title: lead.title, excerpt: lead.excerpt });
-        if (unique.size >= MAX_TOPICS) break;
-      }
-      if (!unique.size) throw new FetchError("Maimai RSS contains no valid hot-topic links");
-      snapshot = { fetchedAt: Date.now(), topics: [...unique.values()] };
+      if (!cookie) throw new FetchError("Maimai session is not configured");
+      snapshot = { fetchedAt: Date.now(), topics: await (readers.rank ?? fetchAuthenticatedHotRank)(cookie) };
     } catch (error) {
-      rssError = error instanceof Error ? error.message : String(error);
-      if (cookie && (!readers.rss || readers.rank)) {
-        try {
-          const candidates = await (readers.rank ?? fetchAuthenticatedHotRank)(cookie);
-          snapshot = { fetchedAt: Date.now(), topics: candidates };
-          await sql`UPDATE sources SET cursor = jsonb_set(coalesce(cursor, '{}'::jsonb), '{hotTopics}', ${sql.json(snapshot as never)}::jsonb) WHERE id = ${SOURCE_ID}`;
-        } catch (fallbackError) {
-          errors.push(`Authenticated hot rank: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
-          if (!snapshot || Date.now() - snapshot.fetchedAt >= DAY) throw fallbackError;
-        }
-      } else if (!snapshot || Date.now() - snapshot.fetchedAt >= DAY) throw error;
+      rankError = error instanceof Error ? error.message : String(error);
+      if (!snapshot || Date.now() - snapshot.fetchedAt >= DAY) throw error;
     }
-    topics = snapshot.topics;
-    const seen = new Set<string>();
-    for (const lead of topics) {
+    for (const lead of snapshot.topics) {
       const draft = topicSource(lead, source);
       if (!draft) continue;
       let posts: Candidate[];
@@ -114,53 +102,61 @@ export async function collectMaimai(readers: { rss?: typeof fetchRss; posts?: ty
       }
       readableTopics++;
       found += posts.length;
-      missingDates += posts.filter(post => !post.publishedAt || !Number.isFinite(post.publishedAt.getTime())).length;
-      const relevantLead = !noiseFiltered(lead, leads);
-      let kept = 0;
-      let times: Map<string, Date> | null = null;
+      const relevantLead = !noiseFiltered(lead, filter);
       for (const post of posts) {
-        if (kept >= MAX_POSTS_PER_TOPIC) break;
-        if (!relevantLead && noiseFiltered({ ...post, title: `${post.title}\n${post.bodyText}` }, leads)) {
-          rejected++;
-          continue;
-        }
-        if (!post.publishedAt && cookie && (!readers.posts || readers.times)) {
-          const id = String((post.raw as { externalId?: unknown } | null)?.externalId ?? "");
-          if (!times && dateLookups < 5) {
-            dateLookups++;
-            const company = lead.title.match(/混元Hy4|阿里巴巴|阿里|淘宝|天猫|蚂蚁|字节跳动|字节|抖音|腾讯|微信|美团|京东|拼多多|小红书|百度|快手|滴滴|网易|小米|华为|Canva|DeepSeek/i)?.[0];
-            const query = company ?? lead.title.slice(0, 20);
-            try { times = await (readers.times ?? fetchPostTimes)(cookie, query); }
-            catch (error) {
-              times = new Map();
-              errors.push(`Post time lookup: ${error instanceof Error ? error.message : String(error)}`);
-            }
-          }
-          const time = times?.get(id);
-          if (time) { post.publishedAt = time; missingDates--; }
-        }
-        const material = postMaterial(post, lead, new Date());
-        // A vague hot-topic headline can lead to a useful post. In that case the post itself must
-        // supply both the employer and the workplace context before the usual editorial review.
-        if (!material) {
-          rejected++;
-          continue;
-        }
-        if (seen.has(material.identityKey)) continue;
-        seen.add(material.identityKey);
-        kept++;
-        const result = await upsertMaterial({ ...material, backfill: source.cursor?.initializedAt ? null : "source-first-import" });
-        created += Number(result.created); revised += Number(result.revised);
-        if (result.created || result.revised || result.processingNeeded) await queueProcessing(result.articleId);
+        const id = publicPostId(post);
+        if (!id || candidates.has(id) || (!relevantLead && noiseFiltered({ ...post, title: `${post.title}\n${post.bodyText}` }, filter))) continue;
+        candidates.set(id, { post, lead });
       }
     }
     if (!readableTopics) throw new FetchError(errors.join("; ").slice(0, 1500) || "No readable Maimai hot topics");
-    if (found && missingDates === found) throw new FetchError("Maimai posts have no usable publication times");
-    await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(),
-      cursor: { initializedAt: source.cursor?.initializedAt ?? new Date().toISOString(), hotTopics: snapshot } });
+
+    const undated = [...candidates].filter(([, { post }]) => !post.publishedAt).map(([id]) => id);
+    const times = new Map<string, Date>();
+    if (undated.length) {
+      const stored = await sql<{ identity_key: string; published_at: Date }[]>`SELECT identity_key, published_at FROM articles
+        WHERE source_id = ${SOURCE_ID} AND published_at IS NOT NULL AND identity_key IN ${sql(undated.map(id => `maimai:post:${id}`))}`;
+      for (const row of stored) times.set(row.identity_key.slice("maimai:post:".length), row.published_at);
+    }
+    if (cookie && !rankError) {
+      const offset = undated.indexOf(dateLookupAfter) + 1;
+      for (const id of [...undated.slice(offset), ...undated.slice(0, offset)]) {
+        if (times.has(id)) continue;
+        const { post } = candidates.get(id)!;
+        const query = post.title.replace(/[\s\p{P}]+/gu, " ").trim().slice(0, 15);
+        if (!query) continue;
+        dateLookupAfter = id;
+        dateLookups++;
+        try {
+          const results = await (readers.times ?? fetchPostTimes)(cookie, query);
+          for (const [matchedId, time] of results) if (!times.has(matchedId)) times.set(matchedId, time);
+        } catch (error) {
+          errors.push(`Post time lookup: ${error instanceof Error ? error.message : String(error)}`);
+          break;
+        }
+        if (dateLookups >= MAX_DATE_LOOKUPS) break;
+      }
+    }
+    const keptByTopic = new Map<string, number>();
+    for (const [id, { post, lead }] of candidates) {
+      const publishedAt = post.publishedAt ?? times.get(id);
+      if (!publishedAt) { missingDates++; continue; }
+      const kept = keptByTopic.get(lead.url) ?? 0;
+      if (kept >= MAX_POSTS_PER_TOPIC) continue;
+      const material = postMaterial({ ...post, publishedAt }, lead, new Date());
+      if (!material) continue;
+      keptByTopic.set(lead.url, kept + 1);
+      const result = await upsertMaterial({ ...material, backfill: source.cursor?.initializedAt ? null : "source-first-import" });
+      created += Number(result.created); revised += Number(result.revised);
+      if (result.created || result.revised || result.processingNeeded) await queueProcessing(result.articleId);
+    }
+    if (rankError) throw new FetchError(`Maimai hot rank unavailable; used cached topics: ${rankError}`);
+    if (missingDates && missingDates === candidates.size) throw new FetchError("Maimai posts have no usable publication times");
+    await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(), cursor: cursor() });
     return { found, created, ...detail() };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (snapshot) await sql`UPDATE sources SET cursor = coalesce(sources.cursor, '{}'::jsonb) || ${sql.json({ hotTopics: snapshot, dateLookupAfter } as never)}::jsonb WHERE id = ${SOURCE_ID}`;
     await recordFetch(sql, SOURCE_ID, run!.id, { found, created, detail: detail(), error: message, budget: false, maxBackoffMinutes: MAIMAI_COLLECTION.maxBackoffMinutes });
     throw error;
   }
@@ -177,8 +173,7 @@ export default {
     run: async () => {
       const [due] = await sql`
         SELECT 1 FROM sources
-        WHERE id = ${SOURCE_ID} AND enabled AND (next_fetch_at IS NULL OR next_fetch_at <= now())
-          AND EXISTS (SELECT 1 FROM sources WHERE id = ${LEADS_ID} AND enabled)`;
+        WHERE id = ${SOURCE_ID} AND enabled AND (next_fetch_at IS NULL OR next_fetch_at <= now())`;
       if (due) await enqueueOn(collectQueue, {}, { singletonKey: SOURCE_ID });
     } }],
 } satisfies ServerModule;
