@@ -177,13 +177,13 @@ test("an all-missing round advances the bounded search to later posts", async ()
   assert.equal(next.missingDates, 12);
 });
 
-test("a high-heat post from the latest view is collected and duplicate views preserve the exact time", async () => {
+test("five likes or five comments qualify a post and duplicate views preserve the exact time", async () => {
   await sql`UPDATE sources SET next_fetch_at=now() WHERE id=${SOURCE_ID}`;
   const shared = { ...post, id: "300101", likes: 0 };
   const latest = [
     { ...shared, publish_time: null, cmts: 5 },
-    { ...post, id: "300102", likes: 12 },
-    { ...post, id: "300103", likes: 2 },
+    { ...post, id: "300102", likes: 5, cmts: 0 },
+    { ...post, id: "300103", likes: 4, cmts: 4 },
   ];
   const result = await collectMaimai({
     ...readers, rank: async () => [topics[0]!],
