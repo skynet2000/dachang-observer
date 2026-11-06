@@ -140,7 +140,7 @@ export async function collectMaimai(readers: { posts?: typeof fetchTopicPosts; r
     }
     if (!readableTopics) throw new FetchError(errors.join("; ").slice(0, 1500) || "No readable Maimai hot topics");
 
-    const popular = [...candidates].filter(([, { post }]) => post.likes >= 10 || post.comments >= 5)
+    const popular = [...candidates].filter(([, { post }]) => post.likes >= 5 || post.comments >= 5)
       .sort(([, a], [, b]) => heat(b.post) - heat(a.post));
     highHeat = popular.length;
     latestOnlyHighHeat = popular.filter(([id]) => !seen.share.has(id)).length;
