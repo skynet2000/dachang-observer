@@ -146,6 +146,8 @@ export const englishUi: Record<string, string> = {
   "游戏陀螺 · 公司与团队": "Game Tuoluo · Companies & teams",
   "触乐 · 游戏公司与职场": "Chuapp · Games industry & workplace",
   "定焦One · 职场故事": "Dingjiao One · Workplace stories",
+  "锦鲤求职 · 互联网招聘周报": "Jinli · Internet hiring weekly",
+  "电厂 · 职场与组织": "Dianchang · Workplace & organisations",
   "硅谷101 · 企业与竞争": "Silicon Valley 101 · Companies & competition",
   "游戏研究社 · 企业与员工": "YYS · Companies & employees",
   "晚点AI · 企业与商业": "LatePost AI · Companies & business",
