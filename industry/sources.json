@@ -8605,6 +8605,109 @@
       "enabled": true
     },
     {
+      "id": "web-jinli-internet-hiring",
+      "name": "锦鲤求职 · 互联网招聘周报",
+      "kind": "web_list",
+      "config": {
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 1
+        },
+        "url": "https://jinliqiuzhi.com/weekly",
+        "parseMode": "html",
+        "itemSelector": "main .jobs:first a:is([href$='/internet_campus'], [href$='/internet_intern'])",
+        "titleSelector": ".job-title",
+        "allowUrlPrefixes": [
+          "https://jinliqiuzhi.com/weekly/"
+        ],
+        "publishedAfter": "2026-10-31T16:00:00.000Z",
+        "detail": {
+          "maxFetches": 2,
+          "publishedAtRegex": "\"datePublished\"\\s*:\\s*\"([^\"]+)\"",
+          "publishedAtAuthoritative": true,
+          "summarySelector": "main .lead"
+        }
+      },
+      "tier": "T2",
+      "owner_entity_id": null,
+      "signal_group_id": "publisher-jinli",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "国内",
+        "互联网",
+        "招聘"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "web-jiemian-dianchang-workplace",
+      "name": "电厂 · 职场与组织",
+      "kind": "web_list",
+      "config": {
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 1
+        },
+        "url": "https://www.jiemian.com/lists/872.html",
+        "parseMode": "html",
+        "itemSelector": ".swiper-news-header a[href], .card-list__content > a:has(h3.card-list__title)",
+        "allowUrlPrefixes": [
+          "https://www.jiemian.com/article/"
+        ],
+        "publishedAfter": "2026-10-31T16:00:00.000Z",
+        "publishedAtUtcOffset": "+08:00",
+        "detail": {
+          "maxFetches": 8,
+          "publishedAtSelector": "p.info-s > span:nth-of-type(2)",
+          "publishedAtAuthoritative": true,
+          "summarySelector": "meta[name='description']"
+        },
+        "ingestNoiseFilter": {
+          "requireTitleAnyMatches": [
+            "裁员",
+            "裁撤",
+            "招聘",
+            "校招",
+            "社招",
+            "缩编",
+            "扩编",
+            "全员信",
+            "薪资",
+            "薪酬",
+            "涨薪",
+            "降薪",
+            "绩效",
+            "年终奖",
+            "晋升",
+            "期权",
+            "组织调整",
+            "组织架构",
+            "人事变动",
+            "劳动争议",
+            "竞业协议",
+            "员工福利"
+          ]
+        }
+      },
+      "tier": "T2",
+      "owner_entity_id": null,
+      "signal_group_id": "media-dianchang",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "媒体",
+        "国内",
+        "职场",
+        "组织与人才"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
       "id": "rss-36kr-domestic-articles",
       "name": "36氪 · 国内大厂文章",
       "kind": "rss",
