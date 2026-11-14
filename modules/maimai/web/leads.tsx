@@ -35,8 +35,10 @@ export default function WorkplaceLeads() {
     {items.length === 0 ? <p className="py-12 text-center text-[14px] text-ink-3"><Text>{status?.ok && !stale ? "本轮未发现符合主题与互动门槛的公开线索。" : "暂时没有可展示的线索，请稍后查看；不能据此判断当天没有职场讨论。"}</Text></p> :
       <div className="space-y-4">{items.map(item => <article key={item.id} className="rounded-sheet border border-line bg-surface p-5 sm:p-6">
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[12px] text-ink-3"><span className="rounded-full bg-hot-soft px-2.5 py-1 text-hot"><Text>未经独立核实</Text></span><span><Text>脉脉 · 公开原帖</Text></span></div>
-        <h2 className="break-words text-[18px] font-semibold leading-relaxed text-ink"><a href={item.url} target="_blank" rel="nofollow noopener noreferrer" className="hover:text-accent">{item.title}</a></h2>
-        <p className="mt-3 whitespace-pre-line break-words text-[14px] leading-[1.8] text-ink-3">{item.excerpt}</p>
+        <h2 className="break-words text-[18px] font-semibold leading-relaxed text-ink"><a href={item.url} target="_blank" rel="nofollow noopener noreferrer" className="hover:text-accent">{item.title}{item.title.length >= 100 ? "…" : ""}</a></h2>
+        <details className="group mt-3 text-[13px] text-ink-3"><summary className="min-h-11 cursor-pointer py-3 text-accent"><span className="group-open:hidden"><Text>展开原帖摘录</Text></span><span className="hidden group-open:inline"><Text>收起原帖摘录</Text></span></summary>
+          <p className="whitespace-pre-line break-words text-[14px] leading-[1.8]">{item.excerpt}</p>
+        </details>
         <div className="mt-4 border-t border-line-soft pt-3 text-[12px] leading-relaxed text-ink-4">
           <p><Text>{item.publishedAt ? "原发时间（北京时间）" : "发布时间未核实"}</Text>{item.publishedAt && <> · <time dateTime={item.publishedAt}>{time(item.publishedAt)}</time></>}</p>
           <p className="mt-1"><Text>发现时间（北京时间）</Text> · <time dateTime={item.firstSeenAt}>{time(item.firstSeenAt)}</time></p>

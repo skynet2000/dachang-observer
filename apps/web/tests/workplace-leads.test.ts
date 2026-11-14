@@ -30,6 +30,9 @@ for(const width of [390,1440])test(`public leads separate unknown publication ti
     await expect(page.locator("article").getByText(/发现时间（北京时间）/)).toBeVisible();
     assert.match(await page.locator('meta[name="robots"]').getAttribute("content")??"",/noindex/);
     assert.match(await page.getByRole("link",{name:"查看原帖"}).getAttribute("rel")??"",/nofollow/);
+    await expect(page.locator("article p").filter({hasText:"用户原帖，仅作线索。"})).toBeHidden();
+    await page.getByText("展开原帖摘录",{exact:true}).click();
+    await expect(page.locator("article p").filter({hasText:"用户原帖，仅作线索。"})).toBeVisible();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.getByRole("button",{name:"Switch to English",exact:true}).click();
     await expect(page.locator("article").getByText("Publication time unverified",{exact:true})).toBeVisible();

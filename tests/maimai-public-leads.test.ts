@@ -13,6 +13,7 @@ const post = (id="123"): TopicPost => ({ url:`https://maimai.cn/n/content/gossip
 test("public leads require valid share links, workplace scope and observed interaction; missing dates stay missing", () => {
   assert.equal(publicLead(post(),topic)?.publishedAt,null);
   assert.ok(publicLead({...post(),likes:0,comments:5},topic));
+  assert.equal(publicLead({...post(),bodyText:"腾讯员工绩效讨论。".repeat(100)},topic)?.excerpt.length,240);
   for (const change of [{likes:4,comments:4},{likes:NaN},{url:"invalid"},{url:"https://evil.example/n/content/gossip-detail/123?gid=123"},
     {url:post().url.replace("gid=123","gid=999")},{title:"吃饭推荐",bodyText:"周末去哪里吃饭？"},
     {publishedAt:new Date(Date.now()-8*86400000)},{publishedAt:new Date(Date.now()+60000)}]) {

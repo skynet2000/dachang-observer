@@ -7183,19 +7183,21 @@
     },
     {
       "id": "web-time-weekly-tech",
-      "name": "时代周报 · 科技与互联网",
-      "kind": "web_list",
+      "name": "时代周报 · 科技与互联网（搜狐号）",
+      "kind": "json_list",
       "config": {
-        "url": "https://www.time-weekly.com/category/12",
-        "parseMode": "html",
-        "itemSelector": "a.pindao_block",
-        "linkSelector": "a",
-        "titleSelector": ".pindao_block_title",
-        "publishedAtSelector": ".pindao_block_tips",
-        "publishedAtUtcOffset": "+08:00",
-        "allowUrlPrefixes": [
-          "https://www.time-weekly.com/post/"
+        "url": "https://v2.sohu.com/author-page-api/author-articles/pc/237556",
+        "itemsPath": "data.pcArticleVOS",
+        "titlePaths": [
+          "title"
         ],
+        "summaryPaths": [
+          "brief"
+        ],
+        "urlTemplate": "https://www.sohu.com/a/{id}_237556",
+        "externalIdPath": "id",
+        "publishedAtPath": "publicTime",
+        "fetchPublicContent": true,
         "sortByPublishedAt": true,
         "_aihot": {
           "initialBackfillLimit": 2,
@@ -7280,7 +7282,10 @@
             "Soul",
             "猎聘"
           ]
-        }
+        },
+        "allowUrlPrefixes": [
+          "https://www.sohu.com/a/"
+        ]
       },
       "tier": "T2",
       "owner_entity_id": null,
@@ -8932,18 +8937,32 @@
     {
       "id": "web-wallstreetcn-domestic",
       "name": "华尔街见闻 · 国内互联网",
-      "kind": "web_list",
+      "kind": "json_list",
       "config": {
+        "url": "https://api-one-wscn.awtmt.com/apiv1/content/information-flow?channel=global&accept=article&limit=50",
+        "itemsPath": "data.items",
+        "titlePaths": [
+          "resource.title"
+        ],
+        "summaryPaths": [
+          "resource.content_short"
+        ],
+        "urlTemplate": "{raw:resource.uri}",
+        "authorPaths": [
+          "resource.author.display_name"
+        ],
+        "externalIdPath": "resource.id",
+        "publishedAtPath": "resource.display_time",
+        "publishedAtUnit": "epoch_s",
+        "requireBoolean": {
+          "path": "resource.is_paid",
+          "equals": false
+        },
         "_aihot": {
           "initialBackfillLimit": 3,
           "initialBackfillMonths": 1
         },
         "sortByPublishedAt": true,
-        "url": "https://wallstreetcn.com/news/global",
-        "parseMode": "html",
-        "itemSelector": "a[href^=\"/articles/\"]:has(section h2):has(time[datetime])",
-        "titleSelector": "section h2",
-        "publishedAtSelector": "time[datetime]",
         "allowUrlPrefixes": [
           "https://wallstreetcn.com/articles/"
         ],

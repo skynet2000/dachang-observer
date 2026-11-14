@@ -17,6 +17,8 @@ const lanjing = { tid: "1792588239727276081", title: "红果把观众的时间�
 const server = http.createServer((req, res) => {
   res.setHeader("content-type", "text/html; charset=utf-8");
   if (req.url === "/lanjing") res.end(`<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { data: { Article: [lanjing] } } } })}</script>`);
+  else if (req.url === "/times") res.end(JSON.stringify({data:{pcArticleVOS:[{id:1101212357,title:"腾讯团队与组织调整",brief:"记者报道。",publicTime:"2026-11-13T11:25:26.000+00:00",link:"https://untrusted.example/wrong"}]}}));
+  else if (req.url === "/wallstreet") res.end(JSON.stringify({data:{items:[false,true].map(is_paid=>({resource:{id:3785916,title:"DeepSeek开放应用API",uri:"https://wallstreetcn.com/articles/3785916",content_short:"公开摘要。",display_time:1794606836,is_paid,author:{display_name:"记者"}}}))}}));
   else if (req.url === "/news/78-20261023-393741.html") res.end('<div class="releaseTime"><span>2026-10-25 15:14:23</span></div>');
   else { res.statusCode = 404; res.end(); }
 });
@@ -35,15 +37,20 @@ test("ChinaVenture cards exclude navigation and use the detail date, not the old
   assert.equal(detail.publishedAt?.toISOString(), "2026-10-25T07:14:23.000Z");
 });
 
-test("Time Weekly ignores old hero cards and reads each dated technology listing in Beijing time", () => {
+test("Time Weekly's recovered Sohu list keeps its platform publication instant and fixed author URL", async () => {
   const s = source("web-time-weekly-tech");
   assertSupportedConfig(s.kind, s.config);
-  const html = '<a href="http://www.time-weekly.com/post/322371"><h2>旧推荐</h2></a>' +
-    '<a class="pindao_block" href="http://www.time-weekly.com/post/333772"><div class="pindao_block_title">DeepSeek 服务恢复</div><div class="pindao_block_tips">2026-10-24 17:56:32</div></a>';
-  const items = fromHtml(html, s.config.url, s);
+  const items = await fetchJsonList({...s,config:{...s.config,url:`${base}/times`}});
   assert.equal(items.length, 1);
-  assert.equal(items[0]!.url, "https://www.time-weekly.com/post/333772");
-  assert.equal(items[0]!.publishedAt?.toISOString(), "2026-10-24T09:56:32.000Z");
+  assert.equal(items[0]!.url, "https://www.sohu.com/a/1101212357_237556");
+  assert.equal(items[0]!.publishedAt?.toISOString(), "2026-11-13T11:25:26.000Z");
+});
+
+test("WallstreetCN's recovered JSON maps second timestamps and excludes paid entries",async()=>{
+  const s=source("web-wallstreetcn-domestic");assertSupportedConfig(s.kind,s.config);
+  const items=await fetchJsonList({...s,config:{...s.config,url:`${base}/wallstreet`}});
+  assert.equal(items.length,1);assert.equal(items[0]!.publishedAt?.toISOString(),"2026-11-13T21:53:56.000Z");
+  assert.equal(items[0]!.author,"记者");assert.equal(items[0]!.bodyText,null);
 });
 
 test("Lanjing embedded JSON preserves long string IDs and the original publication instant", async () => {
