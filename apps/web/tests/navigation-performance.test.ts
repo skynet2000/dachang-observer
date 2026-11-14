@@ -154,14 +154,24 @@ test('SSR list and visited query variants return offline without another read',a
   try{
     await page.goto(origin+'/');
     await expect(page.getByRole('link',{name:'性能检查文章',exact:true})).toBeVisible();
-    // SSR text is visible before the router hydrates. Wait for its client-only shell before
-    // testing SPA history/cache; an earlier click can instead start a native document visit.
-    await page.getByRole('dialog',{name:'搜索',includeHidden:true}).waitFor({state:'attached'});
+    // Visible SSR text or a mounted shell does not prove that initial client loaders have
+    // finished saving their data. Exercise offline history only after the router is ready.
+    await page.waitForFunction(()=>{
+      const state=(window as any).__reactRouterDataRouter?.state;
+      return state?.initialized && state.navigation.state==='idle';
+    });
     await page.getByRole('link',{name:'性能检查文章',exact:true}).click();
     await expect(page.getByText('固定正文',{exact:true})).toBeVisible();
     await context.setOffline(true);
     await page.goBack();
-    await expect(page.getByRole('link',{name:'性能检查文章',exact:true})).toBeVisible({timeout:1500});
+    try { await expect(page.getByRole('link',{name:'性能检查文章',exact:true})).toBeVisible({timeout:1500}); }
+    catch(error){
+      console.error('offline-history-state',await page.evaluate(()=>{
+        const state=(window as any).__reactRouterDataRouter?.state;
+        return {href:location.href,history:history.state,initialized:state?.initialized,location:state?.location,navigation:state?.navigation,errors:state?.errors};
+      }));
+      throw error;
+    }
     await context.setOffline(false);
     await page.getByRole('navigation',{name:'栏目',exact:true}).getByRole('link',{name:'经营与竞争',exact:true}).click();
     await expect(page.getByRole('link',{name:'分类 industry',exact:true})).toBeVisible();
