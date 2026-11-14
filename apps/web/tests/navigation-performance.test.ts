@@ -154,6 +154,9 @@ test('SSR list and visited query variants return offline without another read',a
   try{
     await page.goto(origin+'/');
     await expect(page.getByRole('link',{name:'性能检查文章',exact:true})).toBeVisible();
+    // SSR text is visible before the router hydrates. Wait for its client-only shell before
+    // testing SPA history/cache; an earlier click can instead start a native document visit.
+    await page.getByRole('dialog',{name:'搜索',includeHidden:true}).waitFor({state:'attached'});
     await page.getByRole('link',{name:'性能检查文章',exact:true}).click();
     await expect(page.getByText('固定正文',{exact:true})).toBeVisible();
     await context.setOffline(true);
