@@ -170,6 +170,14 @@ def message(report, sender, recipient, day):
         rows += ['', '昨日内容产出与当前运行状态：',
                  f"采集入库：{ops['collected']} 篇；准入阻止：{ops['blocked']} 篇；公开报道：{ops['published']} 篇；精选：{ops['selected']} 篇。",
                  f"当前连续失败信源：{ops['failing_sources']} 个；等待超2小时：{ops['backlog']} 篇。"]
+    coverage = report.get('coverage')
+    rows += ['', '昨日栏目产出与采集检查：']
+    if coverage and isinstance(coverage.get('sections'), list):
+        rows.extend(f"- {row['label']}：{row['published']} 篇；{row['status']}。" for row in coverage['sections'])
+        rows.append(f"当前覆盖异常信源：{coverage['impaired_sources']}；积压：{coverage['backlog']}；昨日未分类职场稿：{coverage['unclassified_workplace']}。")
+        rows.append('栏目篇数按原文发布时间统计；积压和信源状态为邮件发送时状态，不能把缺失数据当作零。')
+    else:
+        rows.append('栏目检查读取失败；缺失不代表无新稿。')
     rows += ['', '访问信息只做站内匿名聚合，不调用模型；故障与恢复通知仍单独及时发送。']
     msg.set_content('\n'.join(rows))
     return msg
@@ -253,6 +261,20 @@ def main():
         print('Before configured first report date; no email sent.')
         return
     report = json.loads(subprocess.check_output(['docker','compose','exec','-T','db','psql','-U','aihot','-d','aihot','-Atc',QUERY], cwd=ROOT/'current', text=True))
+    try:
+        script = """
+import {coverageSnapshot} from './site/modules/coverage.ts';
+import {closeDb} from './packages/backend/src/db.ts';
+const day=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Shanghai'});
+const end=new Date(day+'T00:00:00+08:00');
+try {console.log(JSON.stringify(await coverageSnapshot(new Date(end.getTime()-86400000),end)));}
+finally {await closeDb();}
+"""
+        report['coverage'] = json.loads(subprocess.check_output(
+            ['docker','compose','exec','-T','api','node','--input-type=module','-e',script],
+            cwd=ROOT/'current', text=True, timeout=90))
+    except (subprocess.SubprocessError, OSError, ValueError):
+        report['coverage'] = None
     report['traffic'] = traffic_report(day)
     if Decimal(str(report.get('paid_usd', 0))) > 0:
         report['fx'] = latest_usd_cny()

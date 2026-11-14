@@ -147,6 +147,15 @@ class CostReportTests(unittest.TestCase):
         self.assertIn('采集入库：10 篇',body)
         self.assertIn('缺失不代表零访问',reporter.message(SAMPLE,'s@e.com','r@e.com','2026-10-25').get_content())
 
+    def test_section_mail_preserves_uncertainty_instead_of_calling_failures_empty(self):
+        report = {**SAMPLE, 'coverage': {'sections': [
+            {'label':'裁员与招聘','published':0,'status':'采集覆盖不完整，暂不能判定无稿'},
+            {'label':'职场与组织','published':0,'status':'采集处理未见异常，暂未发现合格新稿'}],
+            'impaired_sources':1,'backlog':0,'unclassified_workplace':0}}
+        body = reporter.message(report, 'sender@example.com', 'reader@example.com', '2026-11-14').get_content()
+        self.assertIn('采集覆盖不完整，暂不能判定无稿', body)
+        self.assertIn('暂未发现合格新稿', body)
+
     def test_traffic_day_uses_beijing_midnight_and_missing_history_is_not_zero(self):
         payload = {'views':3,'bots':1,'errors':0,'notFound':0,'pages':{'/all':3},'since':'2026-10-24T16:00:00Z'}
         with patch.object(reporter.subprocess,'check_output',return_value=json.dumps(payload)):

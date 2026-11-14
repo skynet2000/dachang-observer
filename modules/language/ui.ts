@@ -151,6 +151,7 @@ export const englishUi: Record<string, string> = {
   "游戏那点事 · 裁撤与团队": "Nadianshi · Layoffs & teams",
   "游戏那点事 · 招聘与岗位": "Nadianshi · Hiring & jobs",
   "职先机 · 官网招聘观察": "Zhixianji · Official hiring observations",
+  "数智前线 · 组织与岗位": "Digital Frontline · Organisations & jobs",
   "电厂 · 职场与组织": "Dianchang · Workplace & organisations",
   "硅谷101 · 企业与竞争": "Silicon Valley 101 · Companies & competition",
   "游戏研究社 · 企业与员工": "YYS · Companies & employees",

@@ -4,5 +4,6 @@ import reader from "@aihot/reader/server";
 
 import language from "@aihot/language/server";
 import maimai from "@aihot/maimai/server";
+import coverage from "./coverage.ts";
 
-export const SERVER_MODULES: readonly ServerModule[] = [reader, language, maimai];
+export const SERVER_MODULES: readonly ServerModule[] = [reader, language, maimai, coverage];
