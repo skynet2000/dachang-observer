@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { Text, useText } from "@aihot/web/lib/text";
 // Phone search: opens over the page from the bars' magnifier with the keyboard
 // already up — the field is focused inside the same tap, which iOS requires — and searches 全部动态
@@ -198,12 +199,12 @@ export function SearchOverlay() {
               <h2 className="text-[13px] font-semibold text-ink-3"><Text>按主题找</Text></h2>
               <div className="mt-2.5 flex flex-wrap gap-2">
                 {companies.map((t) => (
-                  <Link viewTransition key={t.slug} to={`/topics/${t.slug}`} className={`${chip} bg-bg-sunk text-ink-2 ring-1 ring-inset ring-line-soft active:bg-bg-muted dark:bg-bg-muted/60`}>
+                  <Link viewTransition={routeViewTransition()} key={t.slug} to={`/topics/${t.slug}`} className={`${chip} bg-bg-sunk text-ink-2 ring-1 ring-inset ring-line-soft active:bg-bg-muted dark:bg-bg-muted/60`}>
                     <span className="truncate"><Text>{t.name}</Text></span>
                   </Link>
                 ))}
                 {inNav("/topics") && (
-                  <Link viewTransition to="/topics" className={`${chip} gap-0.5 font-medium text-accent`}><Text>
+                  <Link viewTransition={routeViewTransition()} to="/topics" className={`${chip} gap-0.5 font-medium text-accent`}><Text>
                     全部 </Text><Text>{more!.topics.length}</Text><Text> 个主题
                   </Text></Link>
                 )}
@@ -217,7 +218,7 @@ export function SearchOverlay() {
               <ol className="mt-1 divide-y divide-line-soft">
                 {more!.hot.map((h, i) => (
                   <li key={h.to}>
-                    <Link viewTransition to={h.to} className="grid h-12 grid-cols-[18px_minmax(0,1fr)] items-center gap-x-3 active:opacity-60">
+                    <Link viewTransition={routeViewTransition()} to={h.to} className="grid h-12 grid-cols-[18px_minmax(0,1fr)] items-center gap-x-3 active:opacity-60">
                       <span className={`num text-center text-[15px] font-black ${RANK_COLOR[i] ?? "text-rank-rest"}`}><Text>{h.rank}</Text></span>
                       <span className="truncate text-[15px] text-ink"><Text content>{h.title}</Text></span>
                     </Link>

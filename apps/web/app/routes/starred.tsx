@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { Text, useText } from "@aihot/web/lib/text";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
@@ -166,7 +167,7 @@ export default function StarredPage() {
                   <Text>{unavailable ? (
                     s.title
                   ) : (
-                    <Link viewTransition to={`/items/${s.id}`} className="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-accent">
+                    <Link viewTransition={routeViewTransition()} to={`/items/${s.id}`} className="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-accent">
                       <Text content>{s.title}</Text>
                     </Link>
                   )}</Text>

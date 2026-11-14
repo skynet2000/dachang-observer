@@ -9,6 +9,13 @@ import { isPhone } from "./screens";
 
 let goingBack = false;
 
+/** WebKit can retain the outgoing DOM after POP while its router is already idle. */
+export function routeViewTransition(): boolean {
+  if (!isPhone()) return false;
+  const ua = navigator.userAgent;
+  return !(/AppleWebKit/i.test(ua) && !/(Chrome|Chromium|Edg|OPR)\//i.test(ua));
+}
+
 /** Called just before navigating back from the app's own controls (the bar's back button, a tab tapped deeper in). */
 export function markBack() {
   goingBack = true;

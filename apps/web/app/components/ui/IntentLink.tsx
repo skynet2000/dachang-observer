@@ -1,9 +1,10 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { Link, UNSAFE_DataRouterContext, UNSAFE_FrameworkContext, useHref, useLocation, type LinkProps } from "react-router";
 import { hasFreshPage } from '../../lib/page-reuse';
+import { routeViewTransition } from '../shell/transitions';
 
 /** Hover, keyboard focus and a stationary touch prefetch; scrolling over a card does not. */
-export function IntentLink({ onFocus, onBlur, onMouseEnter, onMouseLeave, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, ...props }: Omit<LinkProps, "prefetch">) {
+export function IntentLink({ viewTransition, onFocus, onBlur, onMouseEnter, onMouseLeave, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, ...props }: Omit<LinkProps, "prefetch">) {
   const [ready, setReady] = useState(false);
   const href = useHref(props.to);
   const location = useLocation();
@@ -33,7 +34,7 @@ export function IntentLink({ onFocus, onBlur, onMouseEnter, onMouseLeave, onTouc
   };
   const cancel = () => { clear(); setReady(false); };
   useEffect(() => { cancel(); return clear; }, [props.to]);
-  return <><Link {...props} prefetch={shouldPrefetch ? "render" : "none"}
+  return <><Link {...props} viewTransition={viewTransition && routeViewTransition()} prefetch={shouldPrefetch ? "render" : "none"}
     onFocus={(e) => { onFocus?.(e); if (!e.defaultPrevented) start(); }}
     onBlur={(e) => { onBlur?.(e); cancel(); }}
     onMouseEnter={(e) => { onMouseEnter?.(e); if (!e.defaultPrevented) start(); }}

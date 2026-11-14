@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { Text, useText } from "@aihot/web/lib/text";
 // One report in a feed. Desktop (≥ 961px): a white card beside the time rail. Phones: a compact row with
 // the time in the source line, the bookmark at hand, the reason in one line and duplicate reports
@@ -108,7 +109,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, read = fa
       {EDITORIAL.selectionEnabled && item.sameEvent && (
         <p className="relative z-10 mt-2 line-clamp-1 text-[12.5px] text-ink-4"><Text>
           同一新闻，精选展示
-          </Text><Link viewTransition to={`/items/${item.sameEvent.id}`} className="text-ink-3 transition-colors hover:text-accent">
+          </Text><Link viewTransition={routeViewTransition()} to={`/items/${item.sameEvent.id}`} className="text-ink-3 transition-colors hover:text-accent">
             《<Text content>{item.sameEvent.title}</Text>》
           </Link>
         </p>

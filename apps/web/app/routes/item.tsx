@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { Text, useText } from "@aihot/web/lib/text";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Await, isRouteErrorResponse, Link, useAsyncError, useLoaderData, useNavigate, useRevalidator, type ClientLoaderFunctionArgs } from "react-router";
@@ -448,7 +449,7 @@ function ItemView({ item }: { item: SiteItemDetail }) {
         <RailSection title={translate("主题")}>
           <div className="flex flex-wrap gap-1.5">
             {item.topics.map((t) => (
-              <Link viewTransition key={t.slug} to={`/topics/${t.slug}`} className="chip">
+              <Link viewTransition={routeViewTransition()} key={t.slug} to={`/topics/${t.slug}`} className="chip">
                 <Text>{t.name}</Text>
               </Link>
             ))}
@@ -544,7 +545,7 @@ function ItemView({ item }: { item: SiteItemDetail }) {
           {EDITORIAL.selectionEnabled && item.sameEvent && (
             <p className="mt-5 text-[13px] leading-relaxed text-ink-4"><Text>
               同一新闻，精选展示
-              </Text><Link viewTransition to={`/items/${item.sameEvent.id}`} className="text-ink-3 transition-colors hover:text-accent">
+              </Text><Link viewTransition={routeViewTransition()} to={`/items/${item.sameEvent.id}`} className="text-ink-3 transition-colors hover:text-accent">
                 《<Text content>{item.sameEvent.title}</Text>》
               </Link>
             </p>
@@ -597,7 +598,7 @@ function ItemView({ item }: { item: SiteItemDetail }) {
           {(item.topics.length > 0 || item.tags.length > 0) && (
             <div className="mt-4 flex flex-wrap gap-1.5 lg:hidden">
               {item.topics.map((t) => (
-                <Link viewTransition key={t.slug} to={`/topics/${t.slug}`} className="chip">
+                <Link viewTransition={routeViewTransition()} key={t.slug} to={`/topics/${t.slug}`} className="chip">
                   <Text>{t.name}</Text>
                 </Link>
               ))}
@@ -617,7 +618,7 @@ function ItemView({ item }: { item: SiteItemDetail }) {
               <ul className="divide-y divide-line-soft">
                 {related.map((s) => (
                   <li key={s.publicId}>
-                    <Link viewTransition to={`/story/${s.publicId}`} className="block py-2.5 text-[14px] text-ink-2 hover:text-accent">
+                    <Link viewTransition={routeViewTransition()} to={`/story/${s.publicId}`} className="block py-2.5 text-[14px] text-ink-2 hover:text-accent">
                       <Text content>{s.title}</Text>
                     </Link>
                   </li>

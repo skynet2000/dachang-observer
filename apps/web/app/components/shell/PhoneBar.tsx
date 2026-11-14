@@ -6,7 +6,7 @@ import { forwardRef, useEffect, useLayoutEffect, useState, type ButtonHTMLAttrib
 import { useLocation, useNavigate } from "react-router";
 import { IconChevronLeft } from "../icons";
 import { historyIndex, previousScreen } from "./screens";
-import { markBack } from "./transitions";
+import { markBack, routeViewTransition } from "./transitions";
 
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
@@ -87,7 +87,7 @@ function BackButton({ to, label }: BackTarget) {
       onClick={() => {
         markBack();
         if (historyIndex() > 0) navigate(-1);
-        else navigate(to, { viewTransition: true });
+        else navigate(to, { viewTransition: routeViewTransition() });
       }}
       className="flex h-11 min-w-11 items-center pl-1 pr-2 text-[16px] text-accent transition-opacity active:opacity-50"
     >

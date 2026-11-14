@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { Text, useText } from "@aihot/web/lib/text";
 // The engine's ways in, one panel each: what it is for, the steps to connect, then the details folded away.
 // Addresses are the site's configured public address (`base`); what visitors copy carries the site's tag
@@ -97,7 +98,7 @@ export function McpPanel(props: AgentPanelProps) {
                 ...AGENT_PARTS.flatMap((a) => a.mcpTroubles ?? []),
                 "服务不需要登录；客户端问起 OAuth 或 API Key，选“无”即可。",
                 "收到 429 就按提示等一会儿，不要并发重试。",
-                <><Text>还连不上：把客户端名称、版本和报错写到</Text><Link viewTransition to="/feedback" className={link}><Text>反馈页</Text></Link>。</>,
+                <><Text>还连不上：把客户端名称、版本和报错写到</Text><Link viewTransition={routeViewTransition()} to="/feedback" className={link}><Text>反馈页</Text></Link>。</>,
               ]} />
             ),
           },
@@ -159,7 +160,7 @@ export function RssPanel(props: AgentPanelProps) {
 
       <Block title={translate("刷新多快合适")}>
         <p><Text>阅读器会带着上次的 ETag 来问，内容没变时只回一个很小的 304，不重复下载。30 分钟刷新一次就够，更快也拿不到新的内容。</Text></p>
-        <p className="mt-3 text-[13px] text-ink-3"><Text>{`条目链接指向站内阅读页，原文链接在摘要里。能匿名订阅不等于所有用途都获许可${POLICY.terms.notes ? `：${POLICY.terms.notes.rss}` : ""}，见`}</Text><Link viewTransition to="/terms" className={link}><Text>{POLICY.terms.name}</Text></Link>。</p>
+        <p className="mt-3 text-[13px] text-ink-3"><Text>{`条目链接指向站内阅读页，原文链接在摘要里。能匿名订阅不等于所有用途都获许可${POLICY.terms.notes ? `：${POLICY.terms.notes.rss}` : ""}，见`}</Text><Link viewTransition={routeViewTransition()} to="/terms" className={link}><Text>{POLICY.terms.name}</Text></Link>。</p>
       </Block>
     </>
   );
@@ -269,7 +270,7 @@ export function ApiPanel(props: AgentPanelProps) {
             </Fragment>
           ))}
         </dl>
-        <p className="mt-4 text-[13px] text-ink-3"><Text>{`能匿名调用不等于所有用途都获许可${POLICY.terms.notes ? `：${POLICY.terms.notes.api}` : ""}，见`}</Text><Link viewTransition to="/terms" className={link}><Text>{POLICY.terms.name}</Text></Link>。</p>
+        <p className="mt-4 text-[13px] text-ink-3"><Text>{`能匿名调用不等于所有用途都获许可${POLICY.terms.notes ? `：${POLICY.terms.notes.api}` : ""}，见`}</Text><Link viewTransition={routeViewTransition()} to="/terms" className={link}><Text>{POLICY.terms.name}</Text></Link>。</p>
       </Block>
 
     </>

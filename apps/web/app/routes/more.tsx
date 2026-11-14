@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { Text, useText } from "@aihot/web/lib/text";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouteLoaderData } from "react-router";
@@ -55,7 +56,7 @@ function RowLink({ row, dot = false }: { row: Row; dot?: boolean }) {
   const translate = useText();
   return (
     <li>
-      <Link viewTransition to={row.to} className="flex min-h-[52px] items-center gap-3 px-4 text-[16px] font-medium text-ink transition-colors active:bg-bg-sunk">
+      <Link viewTransition={routeViewTransition()} to={row.to} className="flex min-h-[52px] items-center gap-3 px-4 text-[16px] font-medium text-ink transition-colors active:bg-bg-sunk">
         <span className="shrink-0 text-ink-3"><Text>{row.icon}</Text></span>
         <span className="flex min-w-0 flex-1 items-center gap-2">
           <Text>{row.label}</Text>
@@ -141,8 +142,8 @@ export default function MorePage() {
         </Group>
       </div>
       <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[12px] leading-[2] text-ink-4 lg:justify-start">
-        <Link viewTransition to="/terms" className="hover:text-ink-2"><Text>{POLICY.terms.name}</Text></Link>
-        <Link viewTransition to="/privacy" className="hover:text-ink-2"><Text>隐私说明</Text></Link>
+        <Link viewTransition={routeViewTransition()} to="/terms" className="hover:text-ink-2"><Text>{POLICY.terms.name}</Text></Link>
+        <Link viewTransition={routeViewTransition()} to="/privacy" className="hover:text-ink-2"><Text>隐私说明</Text></Link>
         <a href={EDITORIAL.selectionEnabled ? "/feed.xml" : "/feed/all.xml"} className="hover:text-ink-2">RSS</a>
         {SITE.github && <a href={SITE.github} target="_blank" rel="noopener noreferrer" className="hover:text-ink-2"><Text>GitHub 开源</Text></a>}
         {SITE.icp && <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-ink-2"><Text>{SITE.icp}</Text></a>}

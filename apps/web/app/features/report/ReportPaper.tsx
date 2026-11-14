@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { EDITORIAL } from "@aihot/site";
 import { Text, useText } from "@aihot/web/lib/text";
 // One report with a newspaper's structure in the site's own look: a nameplate with its 报眼 (the box
@@ -344,7 +345,7 @@ function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; 
                 }
                 return (
                   <li key={keyOf(h)}>
-                    <Link to={to} viewTransition={to.startsWith("/")} className="group flex gap-3.5 border-b border-line py-4">
+                    <Link to={to} viewTransition={routeViewTransition() && (to.startsWith("/"))} className="group flex gap-3.5 border-b border-line py-4">
                       <span className="num w-6 shrink-0 text-[26px] font-black leading-[0.95] tracking-[-0.03em] text-accent"><Text>{i + 1}</Text></span>
                       <span className="min-w-0">
                         <span className="block text-[15px] font-bold leading-[1.55] text-ink transition-colors group-hover:text-accent"><Text content>{h.title}</Text></span>
@@ -522,7 +523,7 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
                       <span className="ml-2 text-[12px]"><Text>{WITHDRAWN_NOTE}</Text></span>
                     </span>
                   ) : f.itemId ? (
-                    <Link viewTransition to={`/items/${f.itemId}`} className="text-ink transition-colors hover:text-accent">
+                    <Link viewTransition={routeViewTransition()} to={`/items/${f.itemId}`} className="text-ink transition-colors hover:text-accent">
                       <Text content>{f.title}</Text>
                     </Link>
                   ) : (
@@ -546,7 +547,7 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
         <p className="mt-3 text-[12px] text-ink-4">
           <Text>{`${SITE.name} ${KIND_LABEL[report.kind]}`}</Text>{" · "}
           <Text>{daily ? "根据公开来源自动编辑，每条均附原文" : "根据公开来源自动综合，每条均附原文"}</Text>{" · "}
-          <Link to={daily ? "/daily/archive" : "#report-history"} viewTransition={daily} className="font-medium text-ink-3 transition-colors hover:text-accent">
+          <Link to={daily ? "/daily/archive" : "#report-history"} viewTransition={routeViewTransition() && (daily)} className="font-medium text-ink-3 transition-colors hover:text-accent">
             <Text>{daily ? "日报合订本" : `往期${KIND_LABEL[report.kind]}`}</Text>
           </Link>
         </p>
