@@ -13,6 +13,8 @@ test("a quiet section distinguishes successful rejection, missing collection, so
   assert.match((await jobs()).status,/没有成功采集/);
   await sql`INSERT INTO fetch_runs(source_id,status,finished_at) VALUES('coverage-test','ok',now())`;
   assert.match((await jobs()).status,/暂未发现合格新稿/);
+  await sql`INSERT INTO sources(id,name,kind,created_at) VALUES('push-only','Push only','external',now()-interval '1 day')`;
+  assert.match((await jobs()).status,/暂未发现合格新稿/);
   const item=await upsertMaterial({sourceId:"coverage-test",url:"https://example.org/coverage",title:"招聘观察",via:"fetch"});
   await sql`UPDATE articles SET processing_state='blocked' WHERE id=${item.articleId}`;
   assert.match((await jobs()).status,/暂未发现合格新稿/);
