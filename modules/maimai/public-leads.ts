@@ -52,7 +52,7 @@ export function publicLead(post: TopicPost, topic: string, now = Date.now()) {
   if (post.publishedAt && (!Number.isFinite(post.publishedAt.getTime()) || post.publishedAt.getTime() > now || post.publishedAt.getTime() < now-7*86400000)) return null;
   const filter = { config: { ingestNoiseFilter: scope } } as unknown as Parameters<typeof noiseFiltered>[1];
   if (!post.bodyText || noiseFiltered({ ...post, title: `${post.title}\n${post.bodyText}` }, filter)) return null;
-  return { id, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, topic, title: post.title.slice(0,100), excerpt: post.bodyText.slice(0,600),
+  return { id, url: `https://maimai.cn/n/content/gossip-detail/${id}?egid=${egid}&gid=${id}`, topic, title: post.title.slice(0,100), excerpt: post.bodyText.slice(0,240),
     likes: post.likes, comments: post.comments, publishedAt: post.publishedAt ?? null };
 }
 
@@ -99,7 +99,7 @@ async function saveState(value: Record<string, unknown>) {
 /** Independent public projection. These observations never enter news, reports, ranking or RSS. */
 export async function readPublicLeads() {
   const [status] = await sql`SELECT value FROM settings WHERE key=${STATE}`;
-  const items = await sql`SELECT post_id AS id,url,title,excerpt,likes,comments,published_at AS "publishedAt",
+  const items = await sql`SELECT post_id AS id,url,title,left(excerpt,240) AS excerpt,likes,comments,published_at AS "publishedAt",
     first_seen_at AS "firstSeenAt",last_seen_at AS "lastSeenAt" FROM maimai_public_leads
     WHERE visible AND last_seen_at > now()-interval '2 days' AND first_seen_at > now()-interval '7 days'
     ORDER BY first_seen_at DESC,post_id DESC LIMIT 50`;
