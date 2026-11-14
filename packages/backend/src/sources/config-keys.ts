@@ -12,7 +12,7 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
   web_list: [
     ...COLLECTED, "url", "baseUrl", "parseMode", "adapter", "cacheToleranceSeconds", "linksStartLine", "preserveUrlFragment",
     "itemSelector", "linkSelector", "titleSelector", "publishedAtSelector", "publishedAtRegex", "publishedAtUtcOffset",
-    "method", "bodyForm", "urlTemplate",
+    "method", "bodyForm", "urlTemplate", "responseHtmlPath",
   ],
   json_list: [
     ...COLLECTED, "url", "mode", "method", "headers", "bodyJson", "jsonKey", "windowVar", "itemsPath", "itemsObjectValues",
@@ -62,6 +62,8 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
     else if (kind === "web_list" && key === "method" && !["GET", "POST"].includes(String(value))) out.push(key);
     else if (kind === "web_list" && key === "bodyForm" && (config.method !== "POST" || !value || typeof value !== "object"
       || Array.isArray(value) || !Object.values(value).every(v => typeof v === "string"))) out.push(key);
+    else if (kind === "web_list" && key === "responseHtmlPath" && (typeof value !== "string" || !value.trim()
+      || config.parseMode !== "html" || String(config.url ?? "").startsWith("https://r.jina.ai/"))) out.push(key);
     else if (key === "publishedAfter" && !utcInstant(value)) out.push(key);
     else if (kind === "rss" && key === "publishedAtUtcOffset" && (typeof value !== "string"
       || !/^[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00)$/.test(value))) out.push(key);

@@ -4,6 +4,23 @@
 
 2026-10-24 已核验替代入口：[阿里巴巴集团中文新闻中心](https://www.alibabagroup.com/zh-CN/news-and-resource)。它提供带日期的公开 HTML 新闻卡片，覆盖集团公告，更新较低频。Alizila 的 RSS 连续返回 403 挑战页，暂停轮询并保留历史。抓取器不会绕过登录或验证挑战；21 世纪经济报道等公开详情页的瞬时超时会在原总期限内留出一次恢复机会，仍失败则记录真实错误。
 
+## 政策与监管官方直连补充（2026-11-14）
+
+新增6个官网入口，均不依赖RSS桥接，保持每120分钟采集。范围限互联网企业与平台规则、算法和数据合规、App/SDK用户权益；通用政务会议、培训、比赛和与互联网无关的监管事项先过滤，候选仍走原有行业准入和分类，不强制公开或恢复精选。
+
+| 入口 | 核验页与时间依据 |
+| --- | --- |
+| 网信办 · 网信发布 | [官网列表](https://www.cac.gov.cn/wxzw/wxfb/A093702index_1.htm)，读取原文 `#pubtime`；11月9日互联网新技术新应用备案系统通告可读。 |
+| 网信办 · 互联网内容管理 | [官网列表](https://www.cac.gov.cn/wxzw/hlwnrgl/A093704index_1.htm)，读取原文时间，跟踪平台内容治理与正式执法。 |
+| 网信办 · 数据治理 | [官网列表](https://www.cac.gov.cn/wxzw/sjzl/A093708index_1.htm)，转载只接受已核验网信官网；浙江数据出境负面清单原文可读。安徽原文在部署机超时，不加入允许地址。 |
+| 市场监管总局 · 平台监管 | [总局新闻列表](https://www.samr.gov.cn/xw/zj/)，使用网页公开调用的匿名CMS接口返回的 `data.html`；仅保留互联网公司、平台和交易规则标题，原文 `PubDate` 定时，不用 `MakeTime`。 |
+| 工信部 · App与SDK权益通报 | [通知公告](https://www.miit.gov.cn/jgsj/xgj/APPqhyhqyzxzzxd/tzgg/index.html)，同样读取官方CMS列表和详情 `PubDate`；试读最新第6批通报原发为10月15日，晚于原发的页面生成时间不作新日期。 |
+| 北京通信管理局 · App权益通报 | [网络安全管理列表](https://bjca.miit.gov.cn/zwgk/wlaqgl/index.html)，官方CMS列表和详情 `PubDate`；11月4日问题App通报可读，通信网络单元评级等不属于采集范围。 |
+
+三个网信入口与原网信中国公众号共用 `official-cac`；市场监管入口使用 `official-samr`；工信部及北京通管局入口共用 `official-miit`。六个入口不计作六家独立媒体，不因多入口转载抬高热度。只公开摘要与原文链接，全文再分发关闭。
+
+首次每入口最多导入1篇、近1个月且原发在北京时间11月1日之后的材料，归档到原发时间。没有近期合格稿仍可保持健康监测；原文日期取不到时不入库发布。部分来源本轮为零候选属于真实结果，不回填旧政策。工信部和市场监管的CMS返回JSON包裹的HTML，新增 `web_list.responseHtmlPath: "data.html"` 后复用原有选择器；缺字段、空HTML或错误响应记为采集失败，不伪装健康空列表。
+
 ## 职场运行修复与补充（2026-11-14）
 
 同日继续核验 [RSSHub 的澎湃号公开路由](https://github.com/DIYgod/RSSHub/blob/master/lib/routes/thepaper/user.ts)，新增「数智前线 · 组织与岗位」，直接读取出品方在澎湃的公开 JSON 作者列表。仅筛组织岗位与员工主题，原发时间使用 `pubTimeLong`，首轮最多一篇，固定120分钟采集。媒体信号组为 `media-shuzhiqianxian`，区别于澎湃编辑部自采稿，保留媒体原文链接和署名。
@@ -135,6 +152,7 @@
 - `parseMode`：普通网页默认 `html`；`markdown` 按 Markdown 链接读；`docusaurus_changelog` 读更新日志标题；`intercom_changelog` 按 Intercom 帮助中心的日期章节读取标题和正文，每节保留自己的网址锚点，默认按 UTC 日历日读取，也可指定 `publishedAtUtcOffset`。需要 Jina 时，显式把 `url` 写成 `https://r.jina.ai/https://目标站/路径` 并配置 `JINA_API_KEY`，不是抓不到就自动切换。Jina 默认返回 Markdown；要继续使用 CSS 选择器，显式设 `parseMode: "html"`。
 - `detail`：列表缺日期、标题或摘要时抓详情页补齐（`publishedAtSelector`、`titleSelector`、`summarySelector` 等）。读取失败或本轮 `maxFetches` 用完的条目，后续抓取继续补全；补元数据时保留已确认的正文。已有真实标题不会因为列表仍写“Read the Blog”而被换回按钮文字，也不会仅因标题较长再次读取详情。需要强制使用详情标题时设置 `titleAuthoritative: true`。详情页和正文提取读到不带时区的时间时，先用 `detail.publishedAtUtcOffset`，未设则继承信源的 `publishedAtUtcOffset`，两处都未设时默认 `+08:00`。RSS、JSON 列表也可以用 `detail`。
 - Jina 列表的 `detail.titleRegex`、`publishedAtRegex` 匹配 Jina 文本，可共用同一次详情响应；CSS 选择器读取原站 HTML。应按实际可读取的页面选择规则。
+- `responseHtmlPath`：仅用于已确认返回JSON包裹HTML的公开网页接口，例如 `"data.html"`；须配合 `parseMode: "html"`，按点分路径取非空字符串后复用CSS选择器。必须配置 `baseUrl` 指向官网页面以正确解析相对原文链接。缺字段或错误JSON会失败，不退回整段响应。
 - `allowUrlPrefixes` / `denyUrlPrefixes`：只收某些路径下的文章。
 
 ### json_list

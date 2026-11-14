@@ -9,7 +9,7 @@ import { sanitizeBody } from "../content/sanitize.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { articleUtcOffset, parseLooseDate } from "./dates.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
-import { renderTemplate } from "./json-list.ts";
+import { getPath, renderTemplate } from "./json-list.ts";
 import { fromWeiboHtml } from "./weibo.ts";
 
 const JINA_PREFIX = "https://r.jina.ai/";
@@ -117,7 +117,15 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
     timeoutMs: 25_000,
   });
   if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
-  return { text: res.text(), viaJina: false, base: source.config.baseUrl ?? res.url };
+  let text = res.text();
+  if (source.config.responseHtmlPath) {
+    let data: unknown;
+    try { data = JSON.parse(text); } catch { throw new FetchError("listing response is not JSON"); }
+    const html = getPath(data, source.config.responseHtmlPath);
+    if (typeof html !== "string" || !html.trim()) throw new FetchError("listing HTML path did not resolve to non-empty text");
+    text = html;
+  }
+  return { text, viaJina: false, base: source.config.baseUrl ?? res.url };
 }
 
 /** A listing title that is no headline: a label that swallowed its summary, or a call to action. */
