@@ -143,6 +143,8 @@ export default function AllPage() {
 
       <ActiveFilters base="/all" tag={f.tag} />
 
+      {!f.q && !f.tag && data.page === 1 && <Link to="/workplace-leads" className="mb-3 inline-flex min-h-11 items-center gap-2 text-[13px] font-medium text-accent hover:underline"><Text>职场热议线索</Text><span aria-hidden="true">↗</span><span className="text-[12px] font-normal text-ink-4"><Text>公开讨论 · 未经独立核实</Text></span></Link>}
+
       <p className="feed-order-note"><Text>{f.q && f.tab === "relevance" ? "按全文相关程度排列 · 同一事件合并展示，可展开查看进展" : "按事件最新进展排列 · 同一事件合并展示，可展开查看进展"}</Text></p>
 
       {f.q && (

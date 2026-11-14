@@ -7,7 +7,7 @@ import { load } from "cheerio";
 const at = process.argv.indexOf("--base");
 const base = (at > 0 ? process.argv[at + 1] : process.env.SITE_URL) ?? "http://localhost:3000";
 
-const PAGES = ["/", "/all", "/hot", "/daily", "/daily/archive", "/topics", "/starred", "/agent", "/about", "/changelog", "/feedback", "/terms", "/privacy", "/more", "/admin/login"];
+const PAGES = ["/", "/all", "/hot", "/daily", "/daily/archive", "/topics", "/starred", "/agent", "/about", "/changelog", "/feedback", "/terms", "/privacy", "/more", "/admin/login", "/workplace-leads"];
 const MACHINE: Array<[path: string, type: RegExp]> = [
   ["/api/health", /json/],
   ["/api/v1/items", /json/],
@@ -27,7 +27,7 @@ const MACHINE: Array<[path: string, type: RegExp]> = [
 
 let failed = 0;
 let sitemap = "";
-const NOINDEX_PAGES = new Set(["/starred", "/feedback", "/more", "/admin/login"]);
+const NOINDEX_PAGES = new Set(["/starred", "/feedback", "/more", "/admin/login", "/workplace-leads"]);
 
 function indexingProblem(res: Response, body: string, excluded: boolean): string | null {
   const $ = load(body);

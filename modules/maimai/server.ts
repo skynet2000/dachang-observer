@@ -12,6 +12,7 @@ import { noiseFiltered } from "@aihot/backend/sources/filters";
 import { FetchError, type Candidate, type SourceRow } from "@aihot/backend/sources/types";
 
 import scope from "./scope.json" with { type: "json" };
+import { collectPublicLeads, readPublicLeads } from "./public-leads.ts";
 
 export const SOURCE_ID = MAIMAI_COLLECTION.sourceId;
 export const NOTICE = "未经独立核实";
@@ -209,20 +210,37 @@ export const collectQueue = defineQueue<Record<string, never>>({
   worker: { localConcurrency: 1, pollingIntervalSeconds: 5 }, run: async () => collectMaimai(),
 });
 
+const publicQueue = defineQueue({ name: "maimai.public-leads", options: { policy: "short", retryLimit: 0, expireInSeconds: 600 },
+  worker: { localConcurrency: 1, pollingIntervalSeconds: 5 },
+  run: async () => collectPublicLeads() });
+
 export default {
-  name: "maimai", queues: [collectQueue],
+  name: "maimai", queues: [collectQueue, publicQueue],
+  http: app => {
+    app.get("/api/maimai/leads", async (_req,reply) => {
+      reply.header("Cache-Control","public, max-age=60").header("X-Robots-Tag","noindex");
+      return readPublicLeads();
+    });
+  },
   followUps: async () => {
     if (process.env.COLLECT_ENABLED !== "true") return [];
+    const [savedState] = await sql`SELECT value FROM settings WHERE key='maimai.public-leads'`;
+    const publicState = savedState?.value;
+    const publicIssues = publicState && (!publicState.ok || Date.now()-new Date(publicState.checkedAt).getTime()>90*60000) ? [{
+      key: "maimai.public-leads", level: "today" as const, owner: true as const,
+      title: "脉脉公开热议线索采集不完整", impact: "职场热议线索可能缺少新帖",
+      action: "检查公开热榜格式、话题页读取和最近成功时间；不要将失败当作当天没有合格讨论",
+    }] : [];
     const [source] = await sql`SELECT last_error, last_ok_at FROM sources
       WHERE id = ${SOURCE_ID} AND enabled AND fail_count >= 3 AND health = 'failing'`;
-    return source ? [{
-      key: "maimai.collection", level: "today" as const, owner: true,
+    return [...publicIssues, ...(source ? [{
+      key: "maimai.collection", level: "today" as const, owner: true as const,
       title: "脉脉采集持续失败",
       impact: "脉脉的新帖子无法进入资讯流",
       action: "检查脉脉采集错误；登录失效时重新登录并更新服务器私有会话",
       detail: String(source.last_error ?? "没有成功的采集结果").slice(0, 200),
       since: source.last_ok_at ?? undefined,
-    }] : [];
+    }] : [])];
   },
   schedules: [{ name: "maimai.poll", cron: "* * * * *", when: () => process.env.COLLECT_ENABLED === "true",
     run: async () => {
@@ -230,5 +248,6 @@ export default {
         SELECT 1 FROM sources
         WHERE id = ${SOURCE_ID} AND enabled AND (next_fetch_at IS NULL OR next_fetch_at <= now())`;
       if (due) await enqueueOn(collectQueue, {}, { singletonKey: SOURCE_ID });
-    } }],
+    } }, { name: "maimai.public-leads.poll", cron: "*/30 * * * *", when: () => process.env.COLLECT_ENABLED === "true",
+      run: async () => enqueueOn(publicQueue, {}, { singletonKey: "maimai-public-leads" }) }],
 } satisfies ServerModule;
