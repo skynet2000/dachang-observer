@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { Text, useText } from "@aihot/web/lib/text";
 import { Fragment, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { IntentLink } from "../components/ui/IntentLink";
@@ -157,11 +158,11 @@ function Maker({ maker, contact }: { maker: NonNullable<typeof ABOUT.maker>; con
           ))}
           <p className="text-ink-3"><Text>
             它一直在改，改了什么都写在
-            </Text><Link viewTransition to="/changelog" className="text-accent hover:underline"><Text>
+            </Text><Link viewTransition={routeViewTransition()} to="/changelog" className="text-accent hover:underline"><Text>
               更新日志
             </Text></Link><Text>
             里；有想法、遇到问题，去
-            </Text><Link viewTransition to="/feedback" className="text-accent hover:underline"><Text>
+            </Text><Link viewTransition={routeViewTransition()} to="/feedback" className="text-accent hover:underline"><Text>
               反馈页
             </Text></Link><Text>
             告诉我。
@@ -276,7 +277,7 @@ export default function AboutPage() {
 
       <p className="mt-16 well rounded-card px-5 py-4 text-[13px] leading-[1.85] text-ink-3">
         <Text>{ABOUT.copyright[0]}</Text>
-        <Link viewTransition to="/feedback" className="text-accent hover:underline"><Text>
+        <Link viewTransition={routeViewTransition()} to="/feedback" className="text-accent hover:underline"><Text>
           反馈页
         </Text></Link>
         <Text>{ABOUT.copyright[1]}</Text>
@@ -286,14 +287,14 @@ export default function AboutPage() {
         <span><Text>{SITE.footerNote}</Text></span>
         <nav className="flex gap-5" aria-label={translate("规则与隐私")}>
           <Link
-            viewTransition
+            viewTransition={routeViewTransition()}
             id={ABOUT.termsAnchor ?? undefined}
             to="/terms"
             className="transition-colors hover:text-accent"
           >
             <Text>{POLICY.terms.name}</Text>
           </Link>
-          <Link viewTransition to="/privacy" className="transition-colors hover:text-accent"><Text>
+          <Link viewTransition={routeViewTransition()} to="/privacy" className="transition-colors hover:text-accent"><Text>
             隐私说明
           </Text></Link>
         </nav>

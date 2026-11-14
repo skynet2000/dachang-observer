@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { Text, useText } from "@aihot/web/lib/text";
 // Reports and developments of one event. Desktop expands inline; phones use a sheet.
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -140,7 +141,7 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo; f
                 <span className="block truncate"><Text>{r.source.name}</Text></span>
                 <time dateTime={r.timelineAt} className="num block text-[11px]"><Text>{monthDayTime(r.timelineAt)}</Text></time>
               </span>
-              <Link viewTransition to={`/items/${r.id}`} className="min-w-0 flex-1 truncate text-ink-2 hover:text-accent">
+              <Link viewTransition={routeViewTransition()} to={`/items/${r.id}`} className="min-w-0 flex-1 truncate text-ink-2 hover:text-accent">
                 <Text content>{r.title}</Text>
               </Link>
               <a href={r.originalUrl} target="_blank" rel="noopener noreferrer" aria-label={translate("打开原文")} className="shrink-0 text-ink-4 hover:text-accent">
@@ -201,7 +202,7 @@ function GroupSheet({ open, onClose, group, filters, parentId }: {
         <ul className="divide-y divide-line-soft">
           {others.map((r) => (
             <li key={r.id} className="flex items-start gap-2 py-3">
-              <Link viewTransition to={`/items/${r.id}`} className="min-w-0 flex-1 active:opacity-60">
+              <Link viewTransition={routeViewTransition()} to={`/items/${r.id}`} className="min-w-0 flex-1 active:opacity-60">
                 <span className="block text-[12.5px] text-ink-4">
                   <Text>{r.source.name}</Text> · <span className="num"><Text>{monthDayTime(r.timelineAt)}</Text></span>
                 </span>

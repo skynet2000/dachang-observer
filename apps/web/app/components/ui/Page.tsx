@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { Text, useText } from "@aihot/web/lib/text";
 import { SITE } from "@aihot/site";
 import type { ReactNode } from "react";
@@ -72,7 +73,7 @@ export function AsideCard({ title, children, className = "" }: { title: ReactNod
 /** "完整榜单 →" style link used in card headers. */
 export function MoreLink({ to, children }: { to: string; children: ReactNode }) {
   return (
-    <Link viewTransition to={to} className="inline-flex items-center gap-0.5 whitespace-nowrap text-[12px] font-semibold text-accent hover:text-accent-ink">
+    <Link viewTransition={routeViewTransition()} to={to} className="inline-flex items-center gap-0.5 whitespace-nowrap text-[12px] font-semibold text-accent hover:text-accent-ink">
       {children}
       <IconChevronRight size={13} />
     </Link>

@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { EDITORIAL } from "@aihot/site";
 import { Text, useText } from "@aihot/web/lib/text";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -311,7 +312,7 @@ export default function StoryPage() {
                   {story.latestAt && <span className="num text-ink-4"><Text>{monthDayTime(story.latestAt)}</Text></span>}
                 </div>
                 {newest ? (
-                  <Link viewTransition to={`/items/${newest.id}`} className="group mt-1.5 inline text-[14px] leading-[1.7] text-ink-2 transition-colors hover:text-accent">
+                  <Link viewTransition={routeViewTransition()} to={`/items/${newest.id}`} className="group mt-1.5 inline text-[14px] leading-[1.7] text-ink-2 transition-colors hover:text-accent">
                     <Text>{story.latest}</Text>
                     <IconChevronRight size={14} className="ml-0.5 inline -translate-y-px text-ink-4 transition-transform group-hover:translate-x-0.5" />
                   </Link>
@@ -336,7 +337,7 @@ export default function StoryPage() {
                     <div className="num text-[12px] text-ink-4">
                       <Text>{monthDayTime(d.firstReportAt)}</Text> · <Text>{d.reportCount}</Text><Text> 篇报道
                     </Text></div>
-                    <Link viewTransition to={`/items/${d.representative.id}`} className="mt-0.5 block text-[15px] font-semibold leading-snug text-ink transition-colors hover:text-accent">
+                    <Link viewTransition={routeViewTransition()} to={`/items/${d.representative.id}`} className="mt-0.5 block text-[15px] font-semibold leading-snug text-ink transition-colors hover:text-accent">
                       <Text content>{d.title}</Text>
                     </Link>
                     <div className="mt-0.5 truncate text-[12.5px] text-ink-4">
@@ -404,7 +405,7 @@ export default function StoryPage() {
               <ul className="-my-1 divide-y divide-line-soft">
                 {story.related.map((r) => (
                   <li key={r.publicId}>
-                    <Link viewTransition to={`/story/${r.publicId}`} className="group flex items-baseline gap-3 py-3">
+                    <Link viewTransition={routeViewTransition()} to={`/story/${r.publicId}`} className="group flex items-baseline gap-3 py-3">
                       <span className="shrink-0 text-[12px] text-ink-4"><Text>{r.relation === "storyline" ? "同一故事线" : "相关事件"}</Text></span>
                       <span className="min-w-0 flex-1 text-[14.5px] font-medium text-ink-2 transition-colors group-hover:text-accent"><Text content>{r.title}</Text></span>
                       <IconChevronRight size={14} className="shrink-0 self-center text-ink-4" />
@@ -444,7 +445,7 @@ export default function StoryPage() {
                 {story.officialReports.slice(0, 5).map((r) => (
                   <li key={r.id} className="py-3">
                     <div className="truncate text-[11.5px] text-ink-4"><Text>{r.source.name}</Text></div>
-                    <Link viewTransition to={`/items/${r.id}`} className="group mt-1 block text-[13.5px] font-semibold leading-[1.6] text-ink transition-colors hover:text-accent">
+                    <Link viewTransition={routeViewTransition()} to={`/items/${r.id}`} className="group mt-1 block text-[13.5px] font-semibold leading-[1.6] text-ink transition-colors hover:text-accent">
                       <Text content>{r.title}</Text>
                       <IconChevronRight size={13} className="ml-0.5 inline -translate-y-px text-ink-4 transition-transform group-hover:translate-x-0.5" />
                     </Link>
@@ -462,7 +463,7 @@ export default function StoryPage() {
             <RailCard title={translate("相关主题")}>
               <div className="flex flex-wrap gap-1.5">
                 {story.topics.map((t) => (
-                  <Link viewTransition key={t.slug} to={`/topics/${t.slug}`} className="chip">
+                  <Link viewTransition={routeViewTransition()} key={t.slug} to={`/topics/${t.slug}`} className="chip">
                     <Text>{t.name}</Text>
                   </Link>
                 ))}

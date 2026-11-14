@@ -1,3 +1,4 @@
+import { routeViewTransition } from "@aihot/web/components/shell/transitions";
 import { EDITORIAL } from "@aihot/site";
 import { Text, useText } from "@aihot/web/lib/text";
 import { useEffect, useRef, useState } from "react";
@@ -281,7 +282,7 @@ export default function FeedbackPage() {
         <div className="flex flex-col-reverse gap-4 border-t border-line-soft bg-bg-sunk/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:bg-bg-muted/30">
           <p className="text-[12px] leading-relaxed text-ink-4 sm:max-w-[400px]"><Text>
             请勿提交密钥、身份证件或与问题无关的敏感信息。提交即表示你知悉反馈内容、选填邮箱、页面信息和截图将按
-            </Text><Link viewTransition to="/privacy" className="text-accent hover:underline"><Text>
+            </Text><Link viewTransition={routeViewTransition()} to="/privacy" className="text-accent hover:underline"><Text>
               隐私说明
             </Text></Link><Text>
             处理。

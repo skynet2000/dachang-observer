@@ -150,6 +150,13 @@ test('browser tab follows the open section and language without adding another t
 
 test('SSR list and visited query variants return offline without another read',async()=>{
   const context=await safari.newContext({viewport:{width:390,height:844}});
+  await context.addInitScript(()=>{
+    (window as any).__nativeTransitions=0;
+    if(typeof document.startViewTransition==='function'){
+      const start=document.startViewTransition.bind(document);
+      document.startViewTransition=(update)=>{(window as any).__nativeTransitions++;return start(update);};
+    }
+  });
   const page=await context.newPage();
   try{
     await page.goto(origin+'/');
@@ -162,6 +169,7 @@ test('SSR list and visited query variants return offline without another read',a
     });
     await page.getByRole('link',{name:'性能检查文章',exact:true}).click();
     await expect(page.getByText('固定正文',{exact:true})).toBeVisible();
+    assert.equal(await page.evaluate(()=>(window as any).__nativeTransitions),0,'WebKit navigation must not enter the native transition that can retain old DOM');
     await context.setOffline(true);
     await page.goBack();
     try { await expect(page.getByRole('link',{name:'性能检查文章',exact:true})).toBeVisible({timeout:1500}); }
