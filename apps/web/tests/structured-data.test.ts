@@ -66,3 +66,19 @@ test("filtered searches and archive pages do not duplicate the homepage Dataset"
     assert.equal(jsonLd(await response.text()).filter(value => value["@type"] === "Dataset").length, 0);
   }
 });
+
+test("paused selection permanently redirects the duplicate home to the canonical news feed with parameters intact", async () => {
+  for (const method of ["GET", "HEAD"]) {
+    for (const query of ["", "?category=jobs&page=2", "?q=fixture&utm_source=test"]) {
+      const response = await fetch(web.origin + "/" + query, { method, redirect: "manual" });
+      assert.equal(response.status, 301);
+      assert.equal(response.headers.get("location"), "/all" + query);
+      if (method === "HEAD") assert.equal(await response.text(), "");
+    }
+  }
+  const response = await fetch(web.origin + "/all", { redirect: "manual" });
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.equal((html.match(/rel="canonical"/g) ?? []).length, 1);
+  assert.match(html, new RegExp(`rel="canonical" href="${web.origin}/all"`));
+});

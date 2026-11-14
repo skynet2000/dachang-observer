@@ -1,4 +1,5 @@
-import AllPage, { loader as allLoader, meta as allMeta } from "./all";
+import AllPage, { meta as allMeta } from "./all";
+import type { loader as allLoader } from "./all";
 import { EDITORIAL } from "@aihot/site";
 import { Text } from "@aihot/web/lib/text";
 import { redirect, useLoaderData } from "react-router";
@@ -22,7 +23,8 @@ export const { clientLoader, shouldRevalidate } = pageReuse<typeof loader>();
 
 export async function loader({ request }: Route.LoaderArgs): Promise<Awaited<ReturnType<typeof allLoader>> | ReturnType<typeof cachedPage<{data: TimelineResponse; filters: ReturnType<typeof readFilters>}>>> {
   const url = new URL(request.url);
-  if (!EDITORIAL.selectionEnabled) return allLoader({ request } as never);
+  // The paused home is an alias: a permanent redirect agrees with /all's canonical and sitemap.
+  if (!EDITORIAL.selectionEnabled) throw redirect(`/all${url.search}`, 301);
   // Source channels remain an API capability; reader feeds always include every source.
   if (url.searchParams.has("channel")) {
     url.searchParams.delete("channel");
