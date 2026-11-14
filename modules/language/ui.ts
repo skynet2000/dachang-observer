@@ -147,6 +147,7 @@ export const englishUi: Record<string, string> = {
   "触乐 · 游戏公司与职场": "Chuapp · Games industry & workplace",
   "定焦One · 职场故事": "Dingjiao One · Workplace stories",
   "锦鲤求职 · 互联网招聘周报": "Jinli · Internet hiring weekly",
+  "资讯已更新": "News updated",
   "电厂 · 职场与组织": "Dianchang · Workplace & organisations",
   "硅谷101 · 企业与竞争": "Silicon Valley 101 · Companies & competition",
   "游戏研究社 · 企业与员工": "YYS · Companies & employees",

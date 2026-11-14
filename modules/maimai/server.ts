@@ -211,6 +211,19 @@ export const collectQueue = defineQueue<Record<string, never>>({
 
 export default {
   name: "maimai", queues: [collectQueue],
+  followUps: async () => {
+    if (process.env.COLLECT_ENABLED !== "true") return [];
+    const [source] = await sql`SELECT last_error, last_ok_at FROM sources
+      WHERE id = ${SOURCE_ID} AND enabled AND fail_count >= 3 AND health = 'failing'`;
+    return source ? [{
+      key: "maimai.collection", level: "today" as const, owner: true,
+      title: "脉脉采集持续失败",
+      impact: "脉脉的新帖子无法进入资讯流",
+      action: "检查脉脉采集错误；登录失效时重新登录并更新服务器私有会话",
+      detail: String(source.last_error ?? "没有成功的采集结果").slice(0, 200),
+      since: source.last_ok_at ?? undefined,
+    }] : [];
+  },
   schedules: [{ name: "maimai.poll", cron: "* * * * *", when: () => process.env.COLLECT_ENABLED === "true",
     run: async () => {
       const [due] = await sql`
