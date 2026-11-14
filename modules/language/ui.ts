@@ -1,5 +1,18 @@
 // Reviewed interface labels. Longer public interface copy is filled by the worker's saved translations.
 export const englishUi: Record<string, string> = {
+  "职场热议线索": "Workplace discussion leads",
+  "公开讨论 · 未经独立核实": "Public discussions · Unverified",
+  "公开可分享的脉脉讨论，仅作线索，未经独立核实，不代表企业确认。": "Publicly shareable Maimai discussions are leads only. They are not independently verified or confirmed by the companies concerned.",
+  "按本站发现时间排列，可能包含被重新讨论的旧帖；不混入新闻时间线、热点榜或刊物。帖子保留原文。": "Ordered by when this site discovered them, these may include older posts being discussed again. They are excluded from the news timeline, trending ranking and editions. Post text remains in its original language.",
+  "公开入口状态待检查，当前列表可能不是最新。": "The public entry needs checking; this list may be out of date.",
+  "公开入口检查正常。互动数为最近一次观察值。": "Public entry checks passed. Interaction counts reflect the latest observation.",
+  "部分公开入口读取失败，当前列表可能不完整。": "Some public entries could not be read. This list may be incomplete.",
+  "最近检查（北京时间）": "Last checked (Beijing time)",
+  "本轮未发现符合主题与互动门槛的公开线索。": "No public leads matched the topic and interaction thresholds in this run.",
+  "暂时没有可展示的线索，请稍后查看；不能据此判断当天没有职场讨论。": "No leads are available to display. Please check later; this does not mean there were no workplace discussions today.",
+  "原发时间（北京时间）": "Originally published (Beijing time)",
+  "发布时间未核实": "Publication time unverified", "发现时间（北京时间）": "Discovered (Beijing time)",
+  "点赞": "likes", "评论": "comments", "查看原帖": "View original post",
   "未经独立核实": "Not independently verified",
   "脉脉 · 公开原帖": "Maimai · Public posts",
   "脉脉 · 公开原帖（未经独立核实）": "Maimai · Public posts (not independently verified)",

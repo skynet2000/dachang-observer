@@ -7,7 +7,7 @@ import { SITE } from '@aihot/site';
 
 let mode = 'ok';
 let origin: string;
-const privatePages = new Set(['/starred', '/feedback', '/more', '/admin/login']);
+const privatePages = new Set(['/starred', '/feedback', '/more', '/admin/login', '/workplace-leads']);
 const server = createServer((req, res) => {
   const path = new URL(req.url!, 'http://fixture').pathname;
   if (path === '/api/mcp') {

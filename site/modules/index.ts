@@ -3,7 +3,8 @@
 // pages' parts. Each list keeps the order its entries appear in on the site.
 import type { ModuleDeclaration } from "@aihot/contracts/modules";
 import reader from "@aihot/reader/module";
+import maimai from "@aihot/maimai/module";
 
 import language from "@aihot/language/module";
 
-export const MODULES: readonly ModuleDeclaration[] = [reader, language];
+export const MODULES: readonly ModuleDeclaration[] = [reader, language, maimai];
