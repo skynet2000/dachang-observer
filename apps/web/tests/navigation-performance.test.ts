@@ -288,6 +288,29 @@ test('Agent tabs finish offline with matching canonical; invalid direct tabs and
   }finally{await context.close();}
 });
 
+test('an open feed offers fresh content without replacing the reader position and ignores failed probes',async()=>{
+  const context=await chrome.newContext({viewport:{width:390,height:844}});
+  const page=await context.newPage();
+  try{
+    await page.goto(origin+'/all?category=jobs');
+    await expect(page.getByRole('link',{name:'分类 jobs',exact:true})).toBeVisible();
+    let fail=true;
+    await page.route('**/api/site/pool?**',route=>route.fulfill({
+      status:fail?503:200,contentType:'application/json',
+      body:JSON.stringify({total:2,items:[{...item,id:'new-item',title:'新的招聘报道'}]}),
+    }));
+    await page.clock.install();
+    await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+    await expect(page.getByText('资讯已更新',{exact:true})).toHaveCount(0);
+    fail=false;
+    await page.clock.fastForward(61_000);
+    await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+    await expect(page.getByText('资讯已更新',{exact:true})).toBeVisible();
+    await expect(page.getByRole('link',{name:'分类 jobs',exact:true})).toBeVisible();
+    await expect(page.getByRole('link',{name:'新的招聘报道',exact:true})).toHaveCount(0);
+  }finally{await context.close();}
+});
+
 test('phone suggestions load only on opening, use one small read, retry failures and update on reopening',async()=>{
   const context=await safari.newContext({viewport:{width:390,height:844}});const page=await context.newPage();
   try{

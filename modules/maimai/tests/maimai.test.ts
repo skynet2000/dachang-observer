@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { sql, closeDb } from "@aihot/backend/db";
 import { stopBoss } from "@aihot/backend/jobs/queue";
-import { collectMaimai, postMaterial, SOURCE_ID, NOTICE } from "../server.ts";
+import maimaiModule, { collectMaimai, postMaterial, SOURCE_ID, NOTICE } from "../server.ts";
 import { parseTopicPosts, type TopicView } from "../authenticated.ts";
 
 const now = new Date();
@@ -65,6 +65,12 @@ test("login or missing post data is a recorded failure, never a healthy empty to
   await assert.rejects(collectMaimai(readers),/topicFeeds/);
   const [capped] = await sql`SELECT next_fetch_at - last_fetch_at = interval '120 minutes' AS capped FROM sources WHERE id=${SOURCE_ID}`;
   assert.equal(capped!.capped, true);
+  const findings = await maimaiModule.followUps();
+  assert.equal(findings[0]?.key, "maimai.collection");
+  assert.equal(findings[0]?.level, "today");
+  await sql`UPDATE sources SET enabled=false WHERE id=${SOURCE_ID}`;
+  assert.deepEqual(await maimaiModule.followUps(), []);
+  await sql`UPDATE sources SET enabled=true WHERE id=${SOURCE_ID}`;
 });
 
 test("reads vaguely titled hot topics, keeps up to five relevant posts and reports a rank outage even with cached topics", async () => {

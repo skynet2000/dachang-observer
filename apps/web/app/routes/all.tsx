@@ -12,6 +12,7 @@ import { ActiveFilters, CategoryTabs, FeedBar, FilterRecovery, SearchField } fro
 import { PillTabs } from "../components/ui/Tabs";
 import { HotTopics } from "../features/feed/HotTopics";
 import { FeedMasthead } from "../features/feed/FeedMasthead";
+import { FeedUpdateNotice } from "../features/feed/FeedUpdateNotice";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { EmptyState, SectionTabTitle } from "../components/ui/Page";
 import { IconSearch } from "../components/icons";
@@ -108,6 +109,7 @@ export default function AllPage() {
 
   return (
     <div className="pb-6">
+      <FeedUpdateNotice data={data} />
       {!f.q && data.page === 1 && <SectionTabTitle label={handle.name} />}
       {/* Phones: the feed bar, or for a search the query (tap to change it) and back to 全部. */}
       {f.q ? (

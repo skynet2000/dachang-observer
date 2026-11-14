@@ -71,7 +71,12 @@ export function parseHotRank(html: string): Candidate[] {
 }
 
 export async function fetchAuthenticatedHotRank(cookie: string): Promise<Candidate[]> {
-  const res = await fetchListing(`${BASE}/community/hot-rank`, { redirectPolicy: "same-origin", headers: headers(cookie) });
+  const res = await fetchListing(`${BASE}/community/hot-rank`, { redirectPolicy: "same-origin", headers: headers(cookie) }).catch(error => {
+    if (error instanceof Error && error.message === "Too many redirects") {
+      throw new FetchError("脉脉登录会话失效或登录跳转异常，请重新登录并更新服务器私有会话", 401);
+    }
+    throw error;
+  });
   if (res.status !== 200 || new URL(res.url).pathname.includes("/login")) throw new FetchError("Maimai session expired or hot rank unavailable");
   return parseHotRank(res.text());
 }
