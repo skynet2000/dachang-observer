@@ -8708,6 +8708,54 @@
       "enabled": true
     },
     {
+      "id": "rss-nadianshi-layoffs",
+      "name": "游戏那点事 · 裁撤与团队",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "http://www.nadianshi.com/?s=%E8%A3%81%E5%91%98&feed=rss2",
+        "_aihot": { "initialBackfillLimit": 1, "initialBackfillMonths": 1 },
+        "publishedAfter": "2026-10-31T16:00:00.000Z",
+        "allowUrlPrefixes": ["http://www.nadianshi.com/"],
+        "sortByPublishedAt": true,
+        "ingestNoiseFilter": {
+          "requireTitleAnyMatches": ["裁员", "裁撤", "关停", "关闭", "倒闭", "欠薪", "招聘", "校招", "薪酬", "绩效", "年终奖", "工作室", "员工"]
+        }
+      },
+      "tier": "T2",
+      "owner_entity_id": null,
+      "signal_group_id": "media-nadianshi",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": ["媒体", "游戏", "职场", "组织与人才"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "rss-nadianshi-hiring",
+      "name": "游戏那点事 · 招聘与岗位",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "http://www.nadianshi.com/?s=%E6%8B%9B%E8%81%98&feed=rss2",
+        "_aihot": { "initialBackfillLimit": 1, "initialBackfillMonths": 1 },
+        "publishedAfter": "2026-10-31T16:00:00.000Z",
+        "allowUrlPrefixes": ["http://www.nadianshi.com/"],
+        "sortByPublishedAt": true,
+        "ingestNoiseFilter": {
+          "requireTitleAnyMatches": ["裁员", "裁撤", "关停", "关闭", "倒闭", "欠薪", "招聘", "校招", "薪酬", "绩效", "年终奖", "工作室", "员工"]
+        }
+      },
+      "tier": "T2",
+      "owner_entity_id": null,
+      "signal_group_id": "media-nadianshi",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": ["媒体", "游戏", "职场", "招聘"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
       "id": "rss-36kr-domestic-articles",
       "name": "36氪 · 国内大厂文章",
       "kind": "rss",
