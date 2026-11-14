@@ -22,6 +22,9 @@ ROOT = mail.ROOT
 CHECK = """
 import {collectFindings} from './packages/backend/src/operations/alerts.ts';
 import {sql,closeDb} from './packages/backend/src/db.ts';
+import {installModules} from './packages/backend/src/modules.ts';
+import {SERVER_MODULES} from './site/modules/server.ts';
+installModules(SERVER_MODULES);
 try {
  const findings=(await collectFindings()).filter(f=>f.level==='now'||f.level==='today');
  const [hb]=await sql`SELECT updated_at FROM settings WHERE key='heartbeat.worker'`;
