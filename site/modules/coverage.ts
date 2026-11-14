@@ -7,7 +7,8 @@ export async function coverageSnapshot(start: Date, end: Date) {
   const [pipeline] = await sql<{ successful_runs: number; impaired_sources: number; backlog: number; unclassified_workplace: number }[]>`
     SELECT
       (SELECT count(*)::int FROM fetch_runs WHERE started_at >= ${start} AND started_at < ${end} AND status='ok') AS successful_runs,
-      (SELECT count(*)::int FROM sources WHERE enabled AND participation_mode='editorial' AND
+      (SELECT count(*)::int FROM sources WHERE enabled AND participation_mode='editorial'
+        AND (kind <> 'external' OR id='external-maimai-posts') AND
         (health='failing' OR last_ok_at IS NULL AND created_at < now()-interval '4 hours'
           OR last_ok_at < now()-make_interval(mins => greatest(interval_minutes*2,120)+15))) AS impaired_sources,
       (SELECT count(*)::int FROM articles WHERE processing_state IN ('new','failed')
