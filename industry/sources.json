@@ -8708,6 +8708,36 @@
       "enabled": true
     },
     {
+      "id": "web-zhixianji-hiring-observations",
+      "name": "职先机 · 官网招聘观察",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jobs.ultraai.site/reports/hiring-market",
+        "parseMode": "html",
+        "itemSelector": "a[href^='/reports/hiring-market/']:not([href$='.json']):first",
+        "_aihot": { "initialBackfillLimit": 1, "initialBackfillMonths": 1 },
+        "publishedAfter": "2026-11-12T16:00:00.000Z",
+        "allowUrlPrefixes": ["https://jobs.ultraai.site/reports/hiring-market/"],
+        "detail": {
+          "maxFetches": 1,
+          "titleSelector": "title",
+          "titleAuthoritative": true,
+          "publishedAtRegex": "\"datePublished\"\\s*:\\s*\"([^\"]+)\"",
+          "publishedAtAuthoritative": true,
+          "summarySelector": "meta[name='description']"
+        }
+      },
+      "tier": "T2",
+      "owner_entity_id": null,
+      "signal_group_id": "publisher-zhixianji",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": ["国内", "招聘", "行业分析"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
       "id": "rss-nadianshi-layoffs",
       "name": "游戏那点事 · 裁撤与团队",
       "kind": "rss",
