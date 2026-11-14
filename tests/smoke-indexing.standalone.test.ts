@@ -28,6 +28,7 @@ const server = createServer((req, res) => {
   if (path.endsWith('.png') || path.endsWith('.ico')) { res.setHeader('content-type', path.endsWith('.png') ? 'image/png' : 'image/x-icon'); return res.end(); }
   if (path === '/moved') { res.writeHead(301, { location: '/all' }); return res.end(); }
   if (path === '/missing') res.statusCode = 404;
+  if (path === '/' && mode !== 'home-duplicate') { res.writeHead(301, { location: mode === 'home-wrong' ? '/more' : '/all' }); return res.end(); }
   if (mode === 'header' && path === '/all') res.setHeader('X-Robots-Tag', 'noindex, follow');
   const excluded = privatePages.has(path) && !(mode === 'private' && path === '/more');
   const robots = excluded || mode === 'meta' && path === '/all' ? '<meta content="NOINDEX, follow" name="ROBOTS">' : '';
@@ -55,7 +56,8 @@ test('smoke allows intentional noindex on private pages and a canonical news sit
 
 for (const [fault, message] of [
   ['meta', /noindex/], ['header', /noindex/], ['private', /missing noindex/],
-  ['alias', /canonical/], ['private-sitemap', /noindex/],
+  ['alias', /HTTP 301/], ['private-sitemap', /noindex/],
+  ['home-duplicate', /homepage alias/], ['home-wrong', /homepage alias/],
   ['redirect', /HTTP 301/], ['missing', /HTTP 404/], ['empty', /sitemap has no URLs/],
 ] as const) {
   test(`smoke rejects the ${fault} indexing regression`, async () => {

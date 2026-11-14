@@ -69,8 +69,10 @@ test("filtered feeds keep their exact content address but leave indexing to the 
 test("legacy source filters redirect without changing category, tag or search", async () => {
   for (const base of ["/", "/all"]) {
     const response = await fetch(`${web.origin}${base}?channel=x&category=career&tag=Agent&q=jobs`, { redirect: "manual" });
-    assert.equal(response.status, 302);
-    assert.equal(response.headers.get("location"), `${base}?category=career&tag=Agent&q=jobs`);
+    assert.equal(response.status, base === "/" ? 301 : 302);
+    assert.equal(response.headers.get("location"), base === "/"
+      ? "/all?channel=x&category=career&tag=Agent&q=jobs"
+      : "/all?category=career&tag=Agent&q=jobs");
   }
 });
 

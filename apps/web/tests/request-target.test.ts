@@ -39,12 +39,14 @@ function raw(path: string, method: "GET" | "HEAD") {
 test("origin-form slashes keep the router's homepage and unknown-route semantics", async () => {
   for (const method of ["GET", "HEAD"] as const) {
     const home = await raw("/", method);
-    assert.equal(home.status, 200, web.logs());
+    assert.equal(home.status, 301, web.logs());
+    assert.equal(home.headers.location, "/all");
     for (const path of ["//", "////", "//?category=ai-models"]) {
       const res = await raw(path, method);
-      assert.equal(res.status, 200, `${method} ${path}: ${web.logs()}`);
+      assert.equal(res.status, 301, `${method} ${path}: ${web.logs()}`);
+      assert.equal(res.headers.location, path.includes("?") ? "/all?category=ai-models" : "/all");
       assert.equal(res.headers["content-type"], home.headers["content-type"]);
-      assert.match(res.headers["cache-control"] ?? "", /^public, max-age=\d+, s-maxage=\d+, must-revalidate$/);
+      assert.equal(res.headers["cache-control"], "private, no-store");
       if (method === "HEAD") assert.equal(res.body, "");
     }
     for (const path of ["/unknown-page", "//unknown-page", "//evil.invalid/unknown-page", "//unknown-page.data?token=private"]) {

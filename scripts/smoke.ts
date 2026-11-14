@@ -1,7 +1,7 @@
 // Opens the site's main pages and machine exits and checks each answers: the whole-site check after a
 // deploy, and CI's check of the built site on an empty database.
 //   node scripts/smoke.ts [--base http://localhost:3000]
-import { SITE } from "@aihot/site";
+import { EDITORIAL, SITE } from "@aihot/site";
 import { load } from "cheerio";
 
 const at = process.argv.indexOf("--base");
@@ -43,7 +43,10 @@ async function check(path: string, expect: (res: Response, body: string) => stri
   try {
     const res = await fetch(base + path, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
     const body = res.headers.get("content-type")?.startsWith("image/") ? "" : await res.text();
-    const problem = res.status !== 200 ? `HTTP ${res.status}` : expect(res, body);
+    const homeAlias = path === "/" && !EDITORIAL.selectionEnabled && !quiet;
+    const problem = homeAlias
+      ? res.status === 301 && res.headers.get("location") === "/all" ? null : "homepage alias must permanently redirect to /all"
+      : res.status !== 200 ? `HTTP ${res.status}` : expect(res, body);
     if (problem || !quiet) console.log(`${problem ? "✗" : "✓"} ${path}${problem ? `  ${problem}` : ""}`);
     if (problem) failed += 1;
   } catch (error) {
