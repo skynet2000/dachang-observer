@@ -1,6 +1,7 @@
 // Reviewed interface labels. Longer public interface copy is filled by the worker's saved translations.
 export const englishUi: Record<string, string> = {
   "职场热议线索": "Workplace discussion leads",
+  "展开原帖摘录": "Expand post excerpt", "收起原帖摘录": "Collapse post excerpt",
   "公开讨论 · 未经独立核实": "Public discussions · Unverified",
   "公开可分享的脉脉讨论，仅作线索，未经独立核实，不代表企业确认。": "Publicly shareable Maimai discussions are leads only. They are not independently verified or confirmed by the companies concerned.",
   "按本站发现时间排列，可能包含被重新讨论的旧帖；不混入新闻时间线、热点榜或刊物。帖子保留原文。": "Ordered by when this site discovered them, these may include older posts being discussed again. They are excluded from the news timeline, trending ranking and editions. Post text remains in its original language.",
@@ -150,6 +151,7 @@ export const englishUi: Record<string, string> = {
   "远川研究所 · 互联网商业": "Yuanchuan · Internet business", "互联网怪盗团 · 商业观察": "Internet Phantom Thieves · Business analysis",
   "投中网 · 企业与人才": "ChinaVenture · Companies & talent",
   "时代周报 · 科技与互联网": "Time Weekly · Technology & internet",
+  "时代周报 · 科技与互联网（搜狐号）": "Time Weekly · Technology & internet (Sohu)",
   "蓝鲸新闻 · 互联网商业": "Lanjing News · Internet business",
   "创业邦 · 企业与职场": "CYZone · Companies & workplace",
   "北京商报 · 科技": "Beijing Business Today · Technology",
