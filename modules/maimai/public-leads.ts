@@ -7,30 +7,42 @@ import scope from "./scope.json" with { type: "json" };
 
 const STATE = "maimai.public-leads";
 const FEED = "https://decemberpei.cyou/rssbox/maimai_hot.xml";
+const BACKUP = "https://api.whatshot.top/pro-communities/maimai-hot";
 
 async function readTopics(errors: string[]) {
   try {
     const r = await fetchListing(FEED, { timeoutMs: 12000 });
     if (r.status !== 200) throw new Error(`公开热榜 HTTP ${r.status}`);
     const topics = publicHotTopics(r.text());
-    const value = { topics, fetchedAt: Date.now() };
-    await sql`INSERT INTO settings(key,value,updated_by) VALUES(${STATE+".topics"},${sql.json(value)},'maimai-public-collector')
-      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=now()`;
-    return topics;
-  } catch (error) {
-    const [cached] = await sql`SELECT value FROM settings WHERE key=${STATE+".topics"}`;
-    if (!cached || Date.now()-cached.value.fetchedAt > 2*86400000) throw error;
-    errors.push("公开热榜不可用，正在跟踪48小时内已核验的话题");
-    return cached.value.topics as string[];
+    await saveTopics(topics, "rss");
+    return { topics, source: "rss" };
+  } catch {
+    try {
+      const r = await fetchListing(BACKUP, { timeoutMs: 12000 });
+      if (r.status !== 200) throw new Error(`备用热榜 HTTP ${r.status}`);
+      const topics = publicBackupHotTopics(JSON.parse(r.text()));
+      await saveTopics(topics, "whatshot");
+      return { topics, source: "whatshot" };
+    } catch (error) {
+      const [cached] = await sql`SELECT value FROM settings WHERE key=${STATE+".topics"}`;
+      if (!cached || Date.now()-cached.value.fetchedAt > 2*86400000) throw error;
+      errors.push("两个公开热榜入口均不可用，正在跟踪48小时内已核验的话题");
+      return { topics: cached.value.topics as string[], source: "cache" };
+    }
   }
 }
 
-export function publicHotTopics(xml: string): string[] {
-  const $ = load(xml, { xmlMode: true });
+async function saveTopics(topics: string[], source: string) {
+  const value = { topics, source, fetchedAt: Date.now() };
+  await sql`INSERT INTO settings(key,value,updated_by) VALUES(${STATE+".topics"},${sql.json(value)},'maimai-public-collector')
+    ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=now()`;
+}
+
+function officialTopics(links: string[]): string[] {
   const topics = new Set<string>();
-  for (const item of $("item").toArray()) {
+  for (const link of links) {
     try {
-      const url = new URL($(item).find("link").text());
+      const url = new URL(link);
       const id = url.searchParams.get("topic_id");
       if (url.origin === "https://maimai.cn" && url.pathname === "/n/content/global-topic" && id && /^[\w-]{1,40}$/.test(id)) {
         topics.add(`https://maimai.cn/n/content/global-topic?circle_type=9&topic_id=${id}`);
@@ -39,6 +51,21 @@ export function publicHotTopics(xml: string): string[] {
   }
   if (topics.size < 3) throw new Error("公开热榜缺少有效话题，可能是第三方错误占位或入口失效");
   return [...topics].slice(0, 15);
+}
+
+export function publicHotTopics(xml: string): string[] {
+  const $ = load(xml, { xmlMode: true });
+  return officialTopics($("item link").toArray().map(item => $(item).text()));
+}
+
+export function publicBackupHotTopics(value: unknown, now = Date.now()): string[] {
+  if (!value || typeof value !== "object") throw new Error("备用热榜格式错误");
+  const data = value as { code?: unknown; updateTime?: unknown; data?: unknown };
+  const updated = typeof data.updateTime === "string" ? Date.parse(data.updateTime) : NaN;
+  if (data.code !== 200 || !Number.isFinite(updated) || updated > now + 5*60000 || updated < now - 4*3600000 || !Array.isArray(data.data)) {
+    throw new Error("备用热榜过期或格式错误");
+  }
+  return officialTopics(data.data.map((item: { url?: unknown }) => typeof item?.url === "string" ? item.url : ""));
 }
 
 export function publicLead(post: TopicPost, topic: string, now = Date.now()) {
@@ -62,7 +89,7 @@ export async function collectPublicLeads(readers: { topics?: () => Promise<strin
   const errors: string[] = [];
   const seen = new Set<string>();
   try {
-    const topics = readers.topics ? await readers.topics() : await readTopics(errors);
+    const { topics, source } = readers.topics ? { topics: await readers.topics(), source: "test" } : await readTopics(errors);
     let readable = 0;
     for (const topic of topics.slice(0,15)) {
       try {
@@ -83,8 +110,8 @@ export async function collectPublicLeads(readers: { topics?: () => Promise<strin
     }
     if (!readable) throw new Error(errors[0] ?? "没有可读的公开话题");
     await sql`DELETE FROM maimai_public_leads WHERE first_seen_at < now()-interval '7 days'`;
-    await saveState({ ok: errors.length === 0, checkedAt: new Date().toISOString(), found, kept, readable, topics: topics.length, errors: errors.slice(0,3) });
-    return { found, kept, readable, topics: topics.length, errors };
+    await saveState({ ok: errors.length === 0, checkedAt: new Date().toISOString(), found, kept, readable, topics: topics.length, source, errors: errors.slice(0,3) });
+    return { found, kept, readable, topics: topics.length, source, errors };
   } catch (error) {
     await saveState({ ok: false, checkedAt: new Date().toISOString(), error: error instanceof Error ? error.message : String(error) });
     throw error;
