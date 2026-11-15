@@ -2,7 +2,7 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { sql, closeDb } from "@aihot/backend/db";
-import { collectPublicLeads, publicHotTopics, publicLead, readPublicLeads } from "../modules/maimai/public-leads.ts";
+import { collectPublicLeads, publicBackupHotTopics, publicHotTopics, publicLead, readPublicLeads } from "../modules/maimai/public-leads.ts";
 import type { TopicPost } from "../modules/maimai/authenticated.ts";
 
 after(closeDb);
@@ -27,6 +27,15 @@ test("HTTP-success placeholders and nonofficial topic links cannot become a hot 
   assert.throws(()=>publicHotTopics(xml(["one","two","three"],"https://evil.example")));
   assert.throws(()=>publicHotTopics(xml(["same","same","same"])));
   assert.equal(publicHotTopics(xml(Array.from({length:20},(_,i)=>String(i)))).length,15);
+});
+
+test("backup hot list requires recent data and official distinct topic links",()=>{
+  const now=Date.now();
+  const data={code:200,updateTime:new Date(now-3600000).toISOString(),data:["one","two","three"].map(id=>({url:`https://maimai.cn/n/content/global-topic?topic_id=${id}`}))};
+  assert.equal(publicBackupHotTopics(data,now).length,3);
+  assert.throws(()=>publicBackupHotTopics({...data,updateTime:new Date(now-5*3600000).toISOString()},now));
+  assert.throws(()=>publicBackupHotTopics({...data,data:[{url:"https://evil.example/n/content/global-topic?topic_id=one"}]},now));
+  assert.throws(()=>publicBackupHotTopics({...data,code:500},now));
 });
 
 test("public collection is independent from publications and preserves discovery time and moderation",async()=>{
