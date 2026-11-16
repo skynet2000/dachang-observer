@@ -9,9 +9,9 @@ type Lead = { id: string; url: string; title: string; excerpt: string; likes: nu
   publishedAt: string | null; firstSeenAt: string; lastSeenAt: string };
 type Leads = { status: { ok: boolean; checkedAt: string } | null; items: Lead[] };
 
-export const handle = { tab: "all", name: "职场热议线索" };
+export const handle = { tab: "all", name: "职场热议" };
 export { pageHeaders as headers } from "@aihot/web/lib/api.server";
-export const meta = () => pageMeta({ title: "职场热议线索", path: "/workplace-leads", noindex: true });
+export const meta = () => pageMeta({ title: "职场热议", path: "/workplace-leads", noindex: true });
 export async function loader({ request }: LoaderFunctionArgs) {
   return cachedPage(60, await loadOr404<Leads>("/api/maimai/leads", { signal: request.signal }));
 }
@@ -21,11 +21,11 @@ export default function WorkplaceLeads() {
   const { items, status } = useLoaderData<typeof loader>();
   const stale = !status || Date.now() - new Date(status.checkedAt).getTime() > 90 * 60000;
   return <div className="mx-auto max-w-[900px] pb-8">
-    <PhoneBar title="职场热议线索" back={{ to: "/all?category=workplace", label: "资讯" }} />
+    <PhoneBar title="职场热议" back={{ to: "/all?category=workplace", label: "资讯" }} />
     <header className="pb-4 pt-5 lg:pt-2">
       <Link to="/all?category=workplace" className="hidden text-[13px] text-accent hover:underline lg:inline-flex">← <Text>回到资讯</Text></Link>
       <p className="mb-2 text-[11px] font-semibold tracking-[.12em] text-accent lg:mt-5"><Text>脉脉 · 公开原帖</Text></p>
-      <h1 className="text-[26px] font-bold tracking-tight text-ink lg:text-[32px]"><Text>职场热议线索</Text></h1>
+      <h1 className="text-[26px] font-bold tracking-tight text-ink lg:text-[32px]"><Text>职场热议</Text></h1>
       <p className="mt-2 text-[13px] leading-[1.7] text-ink-3"><Text>公开可分享的脉脉讨论，仅作线索，未经独立核实，不代表企业确认。</Text></p>
     </header>
     <div className="mb-4 border-l-2 border-accent bg-accent-softer px-3 py-2 text-[12px] leading-[1.7] text-ink-3"><Text>按发现时间排列，可能包含旧帖；不计入新闻时间线与热点榜。</Text></div>

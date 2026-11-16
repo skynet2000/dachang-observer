@@ -25,7 +25,7 @@ for(const width of [390,1440])test(`public leads separate unknown publication ti
   const context=await browser.newContext({viewport:{width,height:900}}),page=await context.newPage();
   try {
     await page.goto(web.origin+"/workplace-leads");
-    await expect(page.getByRole("heading",{level:1,name:"职场热议线索"})).toBeVisible();
+    await expect(page.getByRole("heading",{level:1,name:"职场热议"})).toBeVisible();
     await expect(page.locator("article").getByText("发布时间未核实",{exact:true})).toBeVisible();
     await expect(page.locator("article").getByText(/发现时间（北京时间）/)).toBeVisible();
     assert.match(await page.locator('meta[name="robots"]').getAttribute("content")??"",/noindex/);
@@ -35,6 +35,7 @@ for(const width of [390,1440])test(`public leads separate unknown publication ti
     await expect(page.locator("article p").filter({hasText:"用户原帖，仅作线索。"})).toBeVisible();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.getByRole("button",{name:"Switch to English",exact:true}).click();
+    await expect(page.getByRole("heading",{level:1,name:"Workplace discussions"})).toBeVisible();
     await expect(page.locator("article").getByText("Publication time unverified",{exact:true})).toBeVisible();
   } finally { await context.close(); }
 });

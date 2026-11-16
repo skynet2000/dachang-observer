@@ -1,6 +1,6 @@
 // Reviewed interface labels. Longer public interface copy is filled by the worker's saved translations.
 export const englishUi: Record<string, string> = {
-  "职场热议线索": "Workplace discussion leads",
+  "职场热议": "Workplace discussions",
   "展开原帖摘录": "Expand post excerpt", "收起原帖摘录": "Collapse post excerpt",
   "公开讨论 · 未经独立核实": "Public discussions · Unverified",
   "脉脉公开讨论 · 未经独立核实": "Maimai discussions · Unverified",
