@@ -22,28 +22,30 @@ export default function WorkplaceLeads() {
   const stale = !status || Date.now() - new Date(status.checkedAt).getTime() > 90 * 60000;
   return <div className="mx-auto max-w-[900px] pb-8">
     <PhoneBar title="职场热议线索" back={{ to: "/all?category=workplace", label: "资讯" }} />
-    <header className="border-b border-line pb-5 pt-5 lg:pt-2">
-      <Link to="/all?category=workplace" className="hidden text-[13px] text-accent hover:underline lg:inline-flex"><Text>回到资讯</Text> →</Link>
-      <h1 className="mt-3 text-[26px] font-bold tracking-tight text-ink lg:text-[32px]"><Text>职场热议线索</Text></h1>
-      <p className="mt-3 text-[14px] leading-relaxed text-ink-3"><Text>公开可分享的脉脉讨论，仅作线索，未经独立核实，不代表企业确认。</Text></p>
-      <p className="mt-2 text-[13px] leading-relaxed text-ink-4"><Text>按本站发现时间排列，可能包含被重新讨论的旧帖；不混入新闻时间线、热点榜或刊物。帖子保留原文。</Text></p>
+    <header className="pb-4 pt-5 lg:pt-2">
+      <Link to="/all?category=workplace" className="hidden text-[13px] text-accent hover:underline lg:inline-flex">← <Text>回到资讯</Text></Link>
+      <p className="mb-2 text-[11px] font-semibold tracking-[.12em] text-accent lg:mt-5"><Text>脉脉 · 公开原帖</Text></p>
+      <h1 className="text-[26px] font-bold tracking-tight text-ink lg:text-[32px]"><Text>职场热议线索</Text></h1>
+      <p className="mt-2 text-[13px] leading-[1.7] text-ink-3"><Text>公开可分享的脉脉讨论，仅作线索，未经独立核实，不代表企业确认。</Text></p>
     </header>
-    <div role="status" className="my-5 rounded-control border border-line bg-bg-sunk px-4 py-3 text-[13px] leading-relaxed text-ink-3">
+    <div className="mb-4 border-l-2 border-accent bg-accent-softer px-3 py-2 text-[12px] leading-[1.7] text-ink-3"><Text>按发现时间排列，可能包含旧帖；不计入新闻时间线与热点榜。</Text></div>
+    <div role="status" className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line pb-3 text-[12px] leading-relaxed text-ink-4">
+      <span className={`size-1.5 shrink-0 rounded-full ${stale || !status?.ok ? "bg-hot" : "bg-accent"}`} aria-hidden="true" />
       <Text>{stale ? "公开入口状态待检查，当前列表可能不是最新。" : status?.ok ? "公开入口检查正常。互动数为最近一次观察值。" : "部分公开入口读取失败，当前列表可能不完整。"}</Text>
-      {status && <p className="mt-1"><Text>最近检查（北京时间）</Text> · <time dateTime={status.checkedAt}>{time(status.checkedAt)}</time></p>}
+      {status && <span className="text-ink-4"><Text>最近检查（北京时间）</Text> · <time dateTime={status.checkedAt}>{time(status.checkedAt)}</time></span>}
     </div>
     {items.length === 0 ? <p className="py-12 text-center text-[14px] text-ink-3"><Text>{status?.ok && !stale ? "本轮未发现符合主题与互动门槛的公开线索。" : "暂时没有可展示的线索，请稍后查看；不能据此判断当天没有职场讨论。"}</Text></p> :
-      <div className="space-y-4">{items.map(item => <article key={item.id} className="rounded-sheet border border-line bg-surface p-5 sm:p-6">
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-[12px] text-ink-3"><span className="rounded-full bg-hot-soft px-2.5 py-1 text-hot"><Text>未经独立核实</Text></span><span><Text>脉脉 · 公开原帖</Text></span></div>
-        <h2 className="break-words text-[18px] font-semibold leading-relaxed text-ink"><a href={item.url} target="_blank" rel="nofollow noopener noreferrer" className="hover:text-accent">{item.title}{item.title.length >= 100 ? "…" : ""}</a></h2>
-        <details className="group mt-3 text-[13px] text-ink-3"><summary className="min-h-11 cursor-pointer py-3 text-accent"><span className="group-open:hidden"><Text>展开原帖摘录</Text></span><span className="hidden group-open:inline"><Text>收起原帖摘录</Text></span></summary>
-          <p className="whitespace-pre-line break-words text-[14px] leading-[1.8]">{item.excerpt}</p>
-        </details>
-        <div className="mt-4 border-t border-line-soft pt-3 text-[12px] leading-relaxed text-ink-4">
-          <p><Text>{item.publishedAt ? "原发时间（北京时间）" : "发布时间未核实"}</Text>{item.publishedAt && <> · <time dateTime={item.publishedAt}>{time(item.publishedAt)}</time></>}</p>
-          <p className="mt-1"><Text>发现时间（北京时间）</Text> · <time dateTime={item.firstSeenAt}>{time(item.firstSeenAt)}</time></p>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><span>{item.likes} <Text>点赞</Text> · {item.comments} <Text>评论</Text></span><a href={item.url} target="_blank" rel="nofollow noopener noreferrer" className="inline-flex min-h-11 items-center text-[13px] font-medium text-accent"><Text>查看原帖</Text> ↗</a></div>
+      <div className="border-t border-line">{items.map(item => <article key={item.id} className="border-b border-line px-0 py-5 lg:px-3 lg:py-6">
+        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-4"><span><Text>脉脉 · 公开原帖</Text></span><span aria-hidden="true">·</span><span className="font-medium text-hot"><Text>未经独立核实</Text></span></div>
+        <h2 className="line-clamp-3 break-words text-[17px] font-semibold leading-[1.55] text-ink lg:text-[19px]"><a href={item.url} target="_blank" rel="nofollow noopener noreferrer" className="hover:text-accent">{item.title}{item.title.length >= 100 ? "…" : ""}</a></h2>
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] leading-relaxed text-ink-4">
+          <span><Text>{item.publishedAt ? "原发时间（北京时间）" : "发布时间未核实"}</Text>{item.publishedAt && <> · <time dateTime={item.publishedAt}>{time(item.publishedAt)}</time></>}</span>
+          <span><Text>发现时间（北京时间）</Text> · <time dateTime={item.firstSeenAt}>{time(item.firstSeenAt)}</time></span>
         </div>
+        <details className="group mt-2 text-[13px] text-ink-3"><summary className="inline-flex min-h-11 cursor-pointer items-center text-accent"><span className="group-open:hidden"><Text>展开原帖摘录</Text></span><span className="hidden group-open:inline"><Text>收起原帖摘录</Text></span></summary>
+          <p className="whitespace-pre-line break-words pb-2 text-[14px] leading-[1.8]">{item.excerpt}</p>
+        </details>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 text-[12px] text-ink-4"><span>{item.likes} <Text>点赞</Text> · {item.comments} <Text>评论</Text></span><a href={item.url} target="_blank" rel="nofollow noopener noreferrer" className="inline-flex min-h-11 items-center text-[13px] font-medium text-accent hover:underline"><Text>查看原帖</Text> ↗</a></div>
       </article>)}</div>}
   </div>;
 }

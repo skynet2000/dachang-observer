@@ -15,7 +15,7 @@ import { FeedMasthead } from "../features/feed/FeedMasthead";
 import { FeedUpdateNotice } from "../features/feed/FeedUpdateNotice";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { EmptyState, SectionTabTitle } from "../components/ui/Page";
-import { IconSearch } from "../components/icons";
+import { IconArrowRight, IconMessage, IconSearch } from "../components/icons";
 import { PhoneBar } from "../components/shell/PhoneBar";
 import { isPhone, type Screen } from "../components/shell/screens";
 import { openSearch } from "../features/search/SearchOverlay";
@@ -129,6 +129,16 @@ export default function AllPage() {
 
       {!f.q && !f.tag && <FeedMasthead all />}
       {!!data.hot?.length && <HotTopics entries={data.hot} />}
+      {!f.q && !f.tag && data.page === 1 && (
+        <Link to="/workplace-leads" className="group mb-5 flex min-h-[72px] items-center gap-3 rounded-[12px] border border-line bg-surface px-4 py-3 transition-colors hover:border-accent hover:bg-accent-softer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent max-lg:mb-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-accent-soft text-accent" aria-hidden="true"><IconMessage size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-semibold text-ink"><Text>职场热议线索</Text></span>
+            <span className="mt-0.5 block text-[12px] text-ink-3"><Text>脉脉公开讨论 · 未经独立核实</Text></span>
+          </span>
+          <span className="grid size-8 shrink-0 place-items-center rounded-full border border-line text-ink-3 transition-colors group-hover:border-accent group-hover:text-accent" aria-hidden="true"><IconArrowRight size={16} /></span>
+        </Link>
+      )}
 
       {/* Desktop, as on 精选: the title, then one filter row with the search field aligned on the right. */}
       <div className="hidden lg:block">
@@ -142,8 +152,6 @@ export default function AllPage() {
       </div>
 
       <ActiveFilters base="/all" tag={f.tag} />
-
-      {!f.q && !f.tag && data.page === 1 && <Link to="/workplace-leads" className="mb-3 inline-flex min-h-11 items-center gap-2 text-[13px] font-medium text-accent hover:underline"><Text>职场热议线索</Text><span aria-hidden="true">↗</span><span className="text-[12px] font-normal text-ink-4"><Text>公开讨论 · 未经独立核实</Text></span></Link>}
 
       <p className="feed-order-note"><Text>{f.q && f.tab === "relevance" ? "按全文相关程度排列 · 同一事件合并展示，可展开查看进展" : "按事件最新进展排列 · 同一事件合并展示，可展开查看进展"}</Text></p>
 
