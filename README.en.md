@@ -4,7 +4,7 @@
 
 > **Construction mode (2026-10-25):** News / Trending / Daily / Me are the four main destinations. Categories are Jobs & hiring, Work & people, Business & competition, and Policy & regulation. Automated selection scores, selected deep analysis and selected full-body translations are paused; code, thresholds, labels and history are retained. New dailies use admitted reports without extra scoring. Existing selected API/RSS semantics remain historical; subscribe to `/feed/all.xml` for continuing updates. See [selection](docs/selection.md).
 
-**Internet. Companies. People.** A news aggregation and reading site for employees at medium and large internet companies, focused on company development, business competition, organizational changes and working life.
+**Understand Big Tech. See Working Life.** A news aggregation and reading site for employees at medium and large internet companies, focused on company development, business competition, organizational changes and working life.
 
 [Website](https://innews.site/) · [简体中文](README.md) · [Architecture](docs/architecture.md) · [Source configuration](docs/sources.md) · [Maintenance](docs/maintenance.md)
 

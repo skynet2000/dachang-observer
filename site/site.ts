@@ -347,7 +347,7 @@ function spokenTime(time: string): string {
 /** 首页还没有精选时，给读者一个清晰的内容导览。 */
 /** Public feed masthead, kept with the site's other copy. */
 export const FEED_EDITORIAL = {
-  imprint: "DACHANG OBSERVER", kicker: "互联网 · 公司 · 人",
+  imprint: "DACHANG OBSERVER", kicker: "看懂大厂，看见职场",
   featuredTitle: "看见大厂的下一步。", allTitle: "行业变化，持续发生。",
   featuredLead: "面向互联网中大厂职场人的资讯聚合站，关注企业发展与员工处境。阅读无需登录，登录可同步收藏与已读。",
   allLead: "从业务竞争到组织变动，沿着时间读懂事情的来龙去脉。",

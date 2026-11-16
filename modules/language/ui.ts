@@ -140,7 +140,7 @@ export const englishUi: Record<string, string> = {
   "日报合订本": "Daily archive", "往期周报": "Weekly archive", "往期月报": "Monthly archive",
   "往期互联网周报": "Weekly archive", "往期互联网月报": "Monthly archive",
   "头条": "Lead story", "头版": "Front page", "本期导读": "In this issue", "本期版面": "Sections", "快讯": "Briefs", "原文": "Original",
-  "互联网 · 公司 · 人": "INTERNET · COMPANIES · PEOPLE",
+  "看懂大厂，看见职场": "Understand Big Tech. See Working Life.",
   "看见大厂的下一步。": "See the next move.", "行业变化，持续发生。": "An industry in motion.",
   "追踪企业发展，关注职场处境。把分散的消息，读成有脉络的变化。": "Company moves. Workplace shifts. Connected stories that help you see what’s changing.",
   "从业务竞争到组织变动，沿着时间读懂事情的来龙去脉。": "Follow the story, from business competition to organisational change.",
