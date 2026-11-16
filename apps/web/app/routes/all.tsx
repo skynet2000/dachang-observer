@@ -130,13 +130,13 @@ export default function AllPage() {
       {!f.q && !f.tag && <FeedMasthead all />}
       {!!data.hot?.length && <HotTopics entries={data.hot} />}
       {!f.q && !f.tag && data.page === 1 && (
-        <Link to="/workplace-leads" className="group mb-5 flex min-h-[72px] items-center gap-3 rounded-[12px] border border-line bg-surface px-4 py-3 transition-colors hover:border-accent hover:bg-accent-softer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent max-lg:mb-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-accent-soft text-accent" aria-hidden="true"><IconMessage size={20} /></span>
+        <Link to="/workplace-leads" className="group mb-5 flex min-h-[88px] items-center gap-3 rounded-[14px] border border-line border-l-4 border-l-accent bg-accent-softer px-4 py-3 transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent max-lg:mb-4">
+          <span className="grid size-11 shrink-0 place-items-center rounded-[11px] bg-accent text-white" aria-hidden="true"><IconMessage size={21} /></span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-semibold text-ink"><Text>职场热议线索</Text></span>
+            <span className="block text-[17px] font-bold text-ink"><Text>职场热议</Text></span>
             <span className="mt-0.5 block text-[12px] text-ink-3"><Text>脉脉公开讨论 · 未经独立核实</Text></span>
           </span>
-          <span className="grid size-8 shrink-0 place-items-center rounded-full border border-line text-ink-3 transition-colors group-hover:border-accent group-hover:text-accent" aria-hidden="true"><IconArrowRight size={16} /></span>
+          <span className="grid size-9 shrink-0 place-items-center rounded-full border border-accent/30 bg-surface text-accent transition-transform group-hover:translate-x-0.5" aria-hidden="true"><IconArrowRight size={17} /></span>
         </Link>
       )}
 

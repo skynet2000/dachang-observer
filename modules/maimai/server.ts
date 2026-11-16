@@ -228,7 +228,7 @@ export default {
     const publicState = savedState?.value;
     const publicIssues = publicState && (!publicState.ok || Date.now()-new Date(publicState.checkedAt).getTime()>90*60000) ? [{
       key: "maimai.public-leads", level: "today" as const, owner: true as const,
-      title: "脉脉公开热议线索采集不完整", impact: "职场热议线索可能缺少新帖",
+      title: "脉脉公开热议线索采集不完整", impact: "职场热议可能缺少新帖",
       action: "检查公开热榜格式、话题页读取和最近成功时间；不要将失败当作当天没有合格讨论",
     }] : [];
     const [source] = await sql`SELECT last_error, last_ok_at FROM sources
