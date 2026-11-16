@@ -126,7 +126,7 @@ async function saveState(value: Record<string, unknown>) {
 /** Independent public projection. These observations never enter news, reports, ranking or RSS. */
 export async function readPublicLeads() {
   const [status] = await sql`SELECT value FROM settings WHERE key=${STATE}`;
-  const items = await sql`SELECT post_id AS id,url,title,left(excerpt,240) AS excerpt,likes,comments,published_at AS "publishedAt",
+  const items = await sql`SELECT post_id AS id,url,topic_url AS "topicUrl",title,left(excerpt,240) AS excerpt,likes,comments,published_at AS "publishedAt",
     first_seen_at AS "firstSeenAt",last_seen_at AS "lastSeenAt" FROM maimai_public_leads
     WHERE visible AND last_seen_at > now()-interval '2 days' AND first_seen_at > now()-interval '7 days'
     ORDER BY first_seen_at DESC,post_id DESC LIMIT 50`;

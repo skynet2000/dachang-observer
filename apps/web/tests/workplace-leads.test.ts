@@ -10,8 +10,13 @@ const api=createServer((req,res)=>{
   res.setHeader("Content-Type","application/json");
   if(p==="/api/maimai/leads")return res.end(JSON.stringify({status:{ok:!failed,checkedAt:new Date().toISOString()},items:failed?[]:[{
     id:"123",url:"https://maimai.cn/n/content/gossip-detail/123?egid=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&gid=123",
+    topicUrl:"https://maimai.cn/hot/topic/1",
     title:"腾讯绩效与年终奖讨论",excerpt:"用户原帖，仅作线索。",likes:5,comments:7,publishedAt:null,
-    firstSeenAt:"2026-11-14T01:00:00Z",lastSeenAt:new Date().toISOString()}]}));
+    firstSeenAt:"2026-11-14T01:00:00Z",lastSeenAt:new Date().toISOString()},{
+    id:"456",url:"https://maimai.cn/n/content/gossip-detail/456?egid=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&gid=456",
+    topicUrl:"https://maimai.cn/hot/topic/1",
+    title:"同话题的另一条讨论",excerpt:"第二条原帖。",likes:5,comments:1,publishedAt:null,
+    firstSeenAt:"2026-11-14T02:00:00Z",lastSeenAt:new Date().toISOString()}]}));
   if(p==="/api/reader/session")return res.end(JSON.stringify({enabled:false,providers:[],user:null}));
   if(p==="/api/language/texts")return res.end(JSON.stringify({translations:[]}));
   if(p==="/api/site/meta")return res.end(JSON.stringify({changelogVersion:"fixture"}));
@@ -26,6 +31,10 @@ for(const width of [390,1440])test(`public leads separate unknown publication ti
   try {
     await page.goto(web.origin+"/workplace-leads");
     await expect(page.getByRole("heading",{level:1,name:"职场热议"})).toBeVisible();
+    assert.equal(await page.locator("article").count(),1);
+    await page.getByText("同话题另有 1 条讨论",{exact:true}).click();
+    await expect(page.getByRole("link",{name:"同话题的另一条讨论"})).toBeVisible();
+    await expect(page.locator("article").getByText(/话题最近发现（北京时间）/)).toBeVisible();
     await expect(page.locator("article").getByText("发布时间未核实",{exact:true})).toBeVisible();
     await expect(page.locator("article").getByText(/发现时间（北京时间）/)).toBeVisible();
     assert.match(await page.locator('meta[name="robots"]').getAttribute("content")??"",/noindex/);
