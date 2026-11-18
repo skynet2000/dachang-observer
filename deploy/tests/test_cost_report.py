@@ -56,6 +56,7 @@ class CostReportTests(unittest.TestCase):
         self.assertIn('汇率暂不可用', body)
         self.assertIn('部分调用费用待核对', body)
         self.assertIn('独立访客（估算 UV）  暂无数据', body)
+        self.assertEqual(reporter.cost_text('0', '0.02', {}), '0.0200 美元（汇率暂不可用）')
 
     def test_latest_quote_converts_total_into_cny_without_repeating_breakdowns(self):
         fx = {'available':True,'rate':'7','quoted_at':'2026-10-25T08:59:00+08:00','source':'Yahoo Finance','older_quote':False}
@@ -82,6 +83,12 @@ class CostReportTests(unittest.TestCase):
                 self.assertFalse(reporter.latest_usd_cny()['available'])
         with patch.object(reporter.urllib.request,'urlopen',side_effect=OSError('offline')):
             self.assertFalse(reporter.latest_usd_cny()['available'])
+
+    def test_exchange_rate_tries_an_alternate_endpoint_after_a_transport_error(self):
+        with patch.object(reporter.urllib.request,'urlopen',side_effect=[OSError('offline'), self.quote()]) as fetch:
+            self.assertEqual(reporter.latest_usd_cny()['rate'],'6.7')
+        self.assertEqual([call.args[0].host for call in fetch.call_args_list],
+                         ['query1.finance.yahoo.com','query2.finance.yahoo.com'])
 
     def test_old_but_latest_market_quote_is_marked_as_non_realtime(self):
         with patch.object(reporter.urllib.request,'urlopen',return_value=self.quote(regularMarketTime=int(reporter.datetime.now().timestamp())-2*86400)):

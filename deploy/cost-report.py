@@ -41,21 +41,23 @@ def money(value):
 
 def latest_usd_cny():
     """Fetch latest available USD/CNY market quote; never silently reuse a cached rate."""
-    try:
-        request = urllib.request.Request('https://query1.finance.yahoo.com/v8/finance/chart/CNY=X?interval=1m&range=1d', headers={'User-Agent':'DachangObserver/1.0'})
-        with urllib.request.urlopen(request, timeout=12) as response:
-            meta = json.loads(response.read(2000000))['chart']['result'][0]['meta']
-        now = datetime.now(ZoneInfo('UTC'))
-        rate = Decimal(str(meta['regularMarketPrice']))
-        quoted = datetime.fromtimestamp(meta['regularMarketTime'], ZoneInfo('UTC'))
-        age = (now - quoted).total_seconds()
-        if meta['symbol'] != 'CNY=X' or meta['currency'] != 'CNY' or not rate.is_finite() or rate <= 0 or age < -300 or age > 4*86400:
-            raise ValueError('Invalid or stale USD/CNY quote')
-        return {'available':True,'rate':str(rate),'quoted_at':quoted.astimezone(ZoneInfo('Asia/Shanghai')).isoformat(),
-                'fetched_at':now.isoformat(),'source':'Yahoo Finance USD/CNY https://finance.yahoo.com/quote/CNY=X/',
-                'older_quote':age>86400}
-    except (OSError, ValueError, KeyError, TypeError, IndexError, ArithmeticError):
-        return {'available':False,'reason':'汇率接口失败、无有效报价或报价已过期'}
+    for host in ('query1.finance.yahoo.com', 'query2.finance.yahoo.com'):
+        try:
+            request = urllib.request.Request(f'https://{host}/v8/finance/chart/CNY=X?interval=1m&range=1d', headers={'User-Agent':'DachangObserver/1.0'})
+            with urllib.request.urlopen(request, timeout=12) as response:
+                meta = json.loads(response.read(2000000))['chart']['result'][0]['meta']
+            now = datetime.now(ZoneInfo('UTC'))
+            rate = Decimal(str(meta['regularMarketPrice']))
+            quoted = datetime.fromtimestamp(meta['regularMarketTime'], ZoneInfo('UTC'))
+            age = (now - quoted).total_seconds()
+            if meta['symbol'] != 'CNY=X' or meta['currency'] != 'CNY' or not rate.is_finite() or rate <= 0 or age < -300 or age > 4*86400:
+                raise ValueError('Invalid or stale USD/CNY quote')
+            return {'available':True,'rate':str(rate),'quoted_at':quoted.astimezone(ZoneInfo('Asia/Shanghai')).isoformat(),
+                    'fetched_at':now.isoformat(),'source':'Yahoo Finance USD/CNY https://finance.yahoo.com/quote/CNY=X/',
+                    'older_quote':age>86400}
+        except (OSError, ValueError, KeyError, TypeError, IndexError, ArithmeticError):
+            continue
+    return {'available':False,'reason':'汇率接口失败、无有效报价或报价已过期'}
 
 
 def cost_text(cny, usd, fx):
@@ -66,7 +68,8 @@ def cost_text(cny, usd, fx):
         total = cny + usd * Decimal(fx['rate'])
         quote = '（按较早汇率折算）' if fx.get('older_quote') else ''
         return f'{money(total)} 元{quote}'
-    return f'{money(cny)} 元 + {money(usd)} 美元（汇率暂不可用）'
+    original_cny = f'{money(cny)} 元 + ' if cny else ''
+    return f'{original_cny}{money(usd)} 美元（汇率暂不可用）'
 
 
 def message(report, sender, recipient, day):
