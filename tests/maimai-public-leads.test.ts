@@ -64,5 +64,36 @@ test("public collection is independent from publications and preserves discovery
     assert.equal((await readPublicLeads()).status.ok,true);
     await sql`UPDATE maimai_public_leads SET last_seen_at=now()-interval '3 days'`;
     assert.equal((await readPublicLeads()).items.length,0);
+    const history = await readPublicLeads(true);
+    assert.deepEqual(history.items.map(item => item.id), ["123"]);
+    assert.equal(+history.items[0].firstSeenAt, +first);
+    assert.equal(history.items[0].publishedAt, null);
   } finally { process.env.COLLECT_ENABLED="false"; }
+});
+
+test("history pages through the 30-day window and collection removes only expired leads", async () => {
+  await sql`UPDATE maimai_public_leads SET first_seen_at=now()-interval '31 days'`;
+  await sql`INSERT INTO maimai_public_leads(post_id,url,topic_url,title,excerpt,likes,comments,first_seen_at,last_seen_at,visible)
+    SELECT n::text,'https://maimai.cn/post/'||n,${topic},'职场讨论','原帖内容',5,0,
+      now()-CASE WHEN n=9052 THEN interval '31 days' ELSE interval '29 days' END,
+      now()-interval '28 days',n<>9051
+    FROM generate_series(9000,9052) AS n`;
+  const first = await readPublicLeads(true, -1);
+  const second = await readPublicLeads(true, 99);
+  assert.equal(first.page, 1);
+  assert.equal(first.pageCount, 2);
+  assert.equal(first.items.length, 50);
+  assert.equal(second.page, 2);
+  assert.deepEqual(second.items.map(item => item.id), ["9000"]);
+  assert.equal(new Set([...first.items, ...second.items].map(item => item.id)).size, 51);
+  assert.equal(first.items[0].id, "9050");
+  assert.equal((await readPublicLeads()).items.length, 0);
+
+  process.env.COLLECT_ENABLED = "true";
+  try {
+    await collectPublicLeads({ topics: async () => [topic], posts: async () => [] });
+    const [{ total, hidden }] = await sql`SELECT count(*)::int AS total, count(*) FILTER (WHERE NOT visible)::int AS hidden FROM maimai_public_leads`;
+    assert.equal(total, 52);
+    assert.equal(hidden, 1);
+  } finally { process.env.COLLECT_ENABLED = "false"; }
 });

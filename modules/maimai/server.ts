@@ -217,9 +217,9 @@ const publicQueue = defineQueue({ name: "maimai.public-leads", options: { policy
 export default {
   name: "maimai", queues: [collectQueue, publicQueue],
   http: app => {
-    app.get("/api/maimai/leads", async (_req,reply) => {
+    app.get<{ Querystring: { view?: string; page?: string } }>("/api/maimai/leads", async (req,reply) => {
       reply.header("Cache-Control","public, max-age=60").header("X-Robots-Tag","noindex");
-      return readPublicLeads();
+      return readPublicLeads(req.query.view === "history", Number(req.query.page ?? 1));
     });
   },
   followUps: async () => {
