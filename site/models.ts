@@ -23,19 +23,11 @@ export interface ModelPreset {
 export const PRESETS: Record<string, ModelPreset> = {
   "intern-flash": {
     service: "intern", model: "deepseek-v4.1-flash-1017", baseUrlEnv: "INTERN_BASE_URL", apiKeyEnv: "INTERN_API_KEY",
-    extra: { thinking: { type: "disabled" } }, jsonMode: true, fallback: "siliconflow-flash",
+    extra: { thinking: { type: "disabled" } }, jsonMode: true, fallback: "aihubmix-flash",
   },
   "intern-flash-think": {
     service: "intern", model: "deepseek-v4.1-flash-1017", baseUrlEnv: "INTERN_BASE_URL", apiKeyEnv: "INTERN_API_KEY", reasoningTokens: 12000,
-    extra: { thinking: { type: "enabled" }, reasoning_effort: "low" }, jsonMode: true, fallback: "siliconflow-flash-think",
-  },
-  "siliconflow-flash": {
-    service: "siliconflow", model: "deepseek-ai/DeepSeek-V4.1-Flash", baseUrlEnv: "SILICONFLOW_BASE_URL", apiKeyEnv: "SILICONFLOW_API_KEY",
-    extra: { enable_thinking: false }, jsonMode: true, fallback: "aihubmix-flash",
-  },
-  "siliconflow-flash-think": {
-    service: "siliconflow", model: "deepseek-ai/DeepSeek-V4.1-Flash", baseUrlEnv: "SILICONFLOW_BASE_URL", apiKeyEnv: "SILICONFLOW_API_KEY", reasoningTokens: 12000,
-    extra: { enable_thinking: true, thinking_budget: 12000 }, jsonMode: true, fallback: "aihubmix-flash-think",
+    extra: { thinking: { type: "enabled" }, reasoning_effort: "low" }, jsonMode: true, fallback: "aihubmix-flash-think",
   },
   "aihubmix-flash": {
     service: "aihubmix", model: "deepseek-v4.1-flash-1017", baseUrlEnv: "AIHUBMIX_BASE_URL", apiKeyEnv: "AIHUBMIX_API_KEY",
@@ -89,10 +81,10 @@ export const PRESETS: Record<string, ModelPreset> = {
  */
 export const DEFAULTS: Record<string, string> = { score: "deepseek-flash-think" };
 
-// 同一 service 的普通、推理、重试及维护请求共用节奏；书生为平台 50 RPM 留余量，硅基采用本站保守节奏。
-export const MODEL_REQUESTS_PER_MINUTE: Readonly<Record<string, number>> = { intern: 45, siliconflow: 30, aihubmix: 30 };
+// 同一 service 的普通、推理、重试及维护请求共用节奏；书生为平台 50 RPM 留余量，AIHubMix 采用本站保守节奏。
+export const MODEL_REQUESTS_PER_MINUTE: Readonly<Record<string, number>> = { intern: 45, aihubmix: 30 };
 // Shared with maintenance processes through receipt reservations; local waiting never buys a fallback.
-export const MODEL_MAX_CONCURRENT: Readonly<Record<string, number>> = { intern: 3, siliconflow: 3, aihubmix: 3 };
+export const MODEL_MAX_CONCURRENT: Readonly<Record<string, number>> = { intern: 3, aihubmix: 3 };
 
 // 2026-10-21 核验：https://api-docs.deepseek.com/zh-cn/quick_start/pricing
 // 当前 deepseek-flash 对应官方 V4.1-Flash-1017；官方未公布单独可调用的日期版名称。
@@ -105,9 +97,6 @@ export const MODEL_COST_POLICY = {
   outputPerMillion: 8,
   maxOutputTokens: 4096,
 } as const;
-
-// SiliconFlow V4.1 Flash uses the same verified peak CNY upper bounds (2026-10-30):
-// https://www.siliconflow.cn/pricing . Gift balance is not evidence of permanently free inference.
 
 // Verified 2026-10-30: list peak USD prices, without temporary promotion or cache discounts.
 // https://aihubmix.com/blog/aihubmix-desktop-1-0-one-click-setup-for-11-agents-and-half-price-deepseek-v4-1-flash-1017-for-two-weeks

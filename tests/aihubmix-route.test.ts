@@ -9,23 +9,23 @@ after(closeDb);
 const answer={model:'deepseek-v4-1-flash-261017',choices:[{message:{content:'{"ok":true}'}}],usage:{prompt_tokens:40,completion_tokens:20}};
 const ask=(model='intern-flash')=>chatJson({model,purpose:'aihubmix-test',subject:tag(),promptVersion:tag(),system:'JSON',user:tag(),schema:z.object({ok:z.boolean()})});
 async function providers(middle:Parameters<typeof stub>[0],run:(p:Awaited<ReturnType<typeof stub>>,s:Awaited<ReturnType<typeof stub>>,m:Awaited<ReturnType<typeof stub>>,f:Awaited<ReturnType<typeof stub>>)=>Promise<void>){
- const p=await stub(()=>new Reply(429,{error:'quota exceeded'})),s=await stub(()=>new Reply(402,{error:'Insufficient Balance'})),m=await stub(middle),f=await stub(()=>answer);
+ const p=await stub(()=>new Reply(429,{error:'quota exceeded'})),s=await stub(()=>answer),m=await stub(middle),f=await stub(()=>answer);
  const env={INTERN_BASE_URL:p.url,INTERN_API_KEY:'test',SILICONFLOW_BASE_URL:s.url,SILICONFLOW_API_KEY:'test',AIHUBMIX_BASE_URL:m.url,AIHUBMIX_API_KEY:'test',DEEPSEEK_BASE_URL:f.url,DEEPSEEK_API_KEY:'test'};
  const before=Object.fromEntries(Object.keys(env).map(k=>[k,process.env[k]]));Object.assign(process.env,env);
  try{await run(p,s,m,f);}finally{for(const[k,v]of Object.entries(before)){if(v===undefined)delete process.env[k];else process.env[k]=v;}await Promise.all([p.close(),s.close(),m.close(),f.close()]);}
 }
-test('four-tier routing reaches AIHubMix after both predecessors fail, preserves modes and avoids official fallback',async()=>{
+test('AIHubMix follows Intern directly even with legacy SiliconFlow credentials',async()=>{
  const modes:string[]=[];
  await providers((_hit,req)=>{const body=JSON.parse(req.body);assert.equal(body.model,'deepseek-v4.1-flash-1017');modes.push(body.thinking.type);assert.equal(body.reasoning_effort,body.thinking.type==='disabled'?'none':'low');return answer;},async(p,s,m,f)=>{
   assert.equal((await ask()).model,'aihubmix-flash');assert.equal((await ask('intern-flash-think')).model,'aihubmix-flash-think');
-  assert.deepEqual(modes,['disabled','enabled']);assert.deepEqual([p.hits(),s.hits(),m.hits(),f.hits()],[1,1,2,0]);
+  assert.deepEqual(modes,['disabled','enabled']);assert.deepEqual([p.hits(),s.hits(),m.hits(),f.hits()],[1,0,2,0]);
  });
 });
-test('an exhausted third tier reaches the official fourth tier once and keeps independent receipts',async()=>{
+test('an exhausted AIHubMix tier reaches the official final tier once and keeps independent receipts',async()=>{
  await providers(()=>new Reply(402,{error:'Insufficient Balance'}),async(p,s,m,f)=>{
-  const r=await ask('intern-flash-think');assert.equal(r.model,'deepseek-flash-think');assert.deepEqual([p.hits(),s.hits(),m.hits(),f.hits()],[1,1,1,1]);
+  const r=await ask('intern-flash-think');assert.equal(r.model,'deepseek-flash-think');assert.deepEqual([p.hits(),s.hits(),m.hits(),f.hits()],[1,0,1,1]);
   const rows=await sql`SELECT service,status FROM receipts WHERE subject=(SELECT subject FROM receipts WHERE id=${r.receiptId}) ORDER BY id`;
-  assert.deepEqual(rows.map(r=>[r.service,r.status]),[['intern','failed'],['siliconflow','failed'],['aihubmix','failed'],['deepseek','received']]);
+  assert.deepEqual(rows.map(r=>[r.service,r.status]),[['intern','failed'],['aihubmix','failed'],['deepseek','received']]);
  });
 });
 test('AIHubMix usage is recorded in USD and a finite CNY cap cannot silently admit it',async()=>{
