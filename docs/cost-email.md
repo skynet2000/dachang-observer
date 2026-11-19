@@ -36,8 +36,14 @@
 
 Docker的`traffic`专用持久卷保存30天聚合数据，镜像升级不清空；非Docker可设置`ACCESS_STATS_DIR`。首次启用无历史可补：缺失写“无历史记录/读取失败”，局部覆盖注明启用时间，不伪装零访问。升级保留既有PV，UV从实际启用时开始；正常重启继续当天去重，恢复不含去重值的备份时重新开始UV局部窗口并标注，不能把旧PV推成UV。邮件正文在正常情况下只有统计日期、模型费用和估算 UV 三行；覆盖不完整或有当日维护备注时才补充说明。故障与恢复通过独立通知发送。
 
-## 后台估算月活（MAU）
+## 服务器私有估算月活（MAU）
 
-启用 `ACCESS_MAU_ENABLED=true` 后，在后台「设置 → 访问统计」查看最近 30 个北京时间自然日的跨日去重访客，含今天截至读取时的访问。前期显示已记录天数和覆盖起点，覆盖满 30 天后显示完整窗口。每日 UV 继续使用按日轮换的密钥，旧 UV 无法回填 MAU，早报仍显示每日模型费用与 UV。
+启用 `ACCESS_MAU_ENABLED=true` 后，服务器统计最近 30 个北京时间自然日的跨日去重访客，含今天截至读取时的访问。读数仅限有服务器权限的维护者读取。覆盖不足 30 天时带有已记录天数和覆盖起点。每日 UV 继续使用按日轮换的密钥，旧 UV 无法回填 MAU，早报仍显示每日模型费用与 UV。
 
 月活使用连接地址与浏览器标识和独立密钥，将每次合格访问映射到当天位图，读取时合并 30 天的位图估算总人数。`/traffic/mau` 中只有私有密钥与统计位图，过期位图在后续采集时清理，现有每日备份不包含此目录。恢复时若原统计卷丢失，从新覆盖起点开始。正常部署应保留 `traffic` 卷，同一个统计目录由单个 Web 进程写入。
+
+有服务器权限时，从当前部署目录读取汇总值：
+
+```bash
+sudo docker compose exec -T web node --input-type=module -e 'import { readRollingVisitors } from "./apps/web/app/lib/rolling-visitors.server.ts"; console.log(JSON.stringify(await readRollingVisitors(process.env.ACCESS_STATS_DIR), null, 2))'
+```

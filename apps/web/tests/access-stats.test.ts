@@ -174,7 +174,7 @@ test("MAU prunes day 31 and restarts coverage when the private state is lost", a
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test("only authenticated settings readers can see the MAU estimate", async () => {
+test("rolling estimates stay server-side even on authenticated pages and loader responses", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "traffic-mau-admin-"));
   const api = createServer((req, res) => {
     res.setHeader("Content-Type", "application/json");
@@ -191,12 +191,17 @@ test("only authenticated settings readers can see the MAU estimate", async () =>
     assert.equal(unauthenticated.status, 302);
     assert.match(unauthenticated.headers.get("location") ?? "", /^\/api\/auth\/login/);
     assert.doesNotMatch(await unauthenticated.text(), /估算月活/);
-    const response = await fetch(web.origin + "/admin/settings", { headers: { cookie: "admin=allowed" } });
-    assert.equal(response.status, 200);
-    assert.match(response.headers.get("cache-control") ?? "", /no-store/);
-    const body = await response.text();
-    assert.match(body, /估算月活（MAU）/);
-    assert.match(body, /已记录 1 \/ 30 天/);
-    assert.doesNotMatch(body, /visitor A|key\.state/);
+    for (const route of ["/admin/settings", "/admin/settings.data"]) {
+      const response = await fetch(web.origin + route, { headers: { cookie: "admin=allowed" } });
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+      assert.doesNotMatch(await response.text(), /估算月活|MAU|monthlyVisitors|key\.state/);
+    }
+    const publicPrivacy = await fetch(web.origin + "/privacy");
+    assert.equal(publicPrivacy.status, 200);
+    const body = await publicPrivacy.text();
+    assert.match(body, /跨日去重统计/);
+    assert.doesNotMatch(body, /估算月活|MAU|monthly active visitors|monthlyVisitors/);
+    assert.equal((await readRollingVisitors(dir))?.estimate, 1);
   } finally { await web.stop(); await rm(dir, { recursive: true, force: true }); }
 });
