@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, readFile, rm, writeFile, unlink, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile, unlink, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createServer } from "node:http";
 import { AccessStats } from "../app/lib/access-stats.server.ts";
+import { RollingVisitors, readRollingVisitors } from "../app/lib/rolling-visitors.server.ts";
 import { startWebServer } from "./web-server.ts";
 
 test("anonymous traffic counts Shanghai days, navigation and errors without storing identity or query strings", async () => {
@@ -112,4 +113,90 @@ test("web UV uses the existing trusted-address boundary without adding cookies o
       await rm(dir, { recursive: true, force: true });
     }
   }
+});
+
+test("rolling visitor estimates deduplicate Beijing days and retain daily UV eligibility", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "traffic-mau-"));
+  let now = new Date("2026-10-25T15:59:00Z");
+  const visit = { method: "GET", url: "/all?q=private-search", headers: { "user-agent": "Example browser", cookie: "reader=private-account" },
+    clientAddress: "203.0.113.7", status: 200, type: "text/html" };
+  try {
+    await new AccessStats(dir, () => now).record(visit);
+    assert.equal(await readRollingVisitors(dir, now), null, "default daily UV does not create MAU state");
+    const mauDir = path.join(dir, "mau");
+    await mkdir(mauDir, { mode: 0o700 });
+    await writeFile(path.join(mauDir, "key.state"), JSON.stringify({ secret: "17".repeat(32), since: now.toISOString() }), { mode: 0o600 });
+
+    const stats = new AccessStats(dir, () => now, true);
+    await Promise.all([stats.record(visit), stats.record(visit), stats.record({ ...visit, clientAddress: "203.0.113.8" })]);
+    now = new Date("2026-10-25T16:01:00Z");
+    const afterMidnight = new AccessStats(dir, () => now, true);
+    await afterMidnight.record({ ...visit, clientAddress: "::ffff:203.0.113.7" });
+    await afterMidnight.record({ ...visit, clientAddress: "203.0.113.9" });
+    await afterMidnight.record({ ...visit, headers: { "user-agent": "Googlebot" } });
+    await afterMidnight.record({ ...visit, url: "/admin/settings" });
+    await afterMidnight.record({ ...visit, status: 404 });
+    assert.deepEqual(await readRollingVisitors(dir, now), { estimate: 3, days: 2, from: "2026-10-25T15:59:00.000Z", complete: false });
+    for (const day of ["2026-10-25", "2026-10-26"]) {
+      assert.equal(JSON.parse(await readFile(path.join(dir, `${day}.json`), "utf8")).uniqueVisitors, 2);
+    }
+    const files = await readdir(mauDir);
+    assert.equal(files.filter(file => file.endsWith(".bits")).length, 2);
+    for (const name of files) {
+      const file = path.join(mauDir, name);
+      assert.equal((await stat(file)).mode & 0o777, 0o600);
+      assert.doesNotMatch(await readFile(file, "utf8"), /203\.0\.113|Example browser|private-account|private-search/);
+    }
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("MAU prunes day 31 and restarts coverage when the private state is lost", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "traffic-mau-window-"));
+  try {
+    const start = Date.parse("2026-10-25T16:00:00Z");
+    const at = (day: number) => new Date(start + day * 86_400_000);
+    const mauDir = path.join(dir, "mau");
+    await mkdir(mauDir, { mode: 0o700 });
+    const keyFile = path.join(mauDir, "key.state");
+    await writeFile(keyFile, JSON.stringify({ secret: "17".repeat(32), since: at(0).toISOString() }), { mode: 0o600 });
+    const monthly = new RollingVisitors(dir);
+    for (let day = 0; day < 30; day++) await monthly.record(day === 0 ? "visitor A" : "visitor B", at(day));
+    assert.deepEqual(await readRollingVisitors(dir, at(29)), { estimate: 2, days: 30, from: at(0).toISOString(), complete: true });
+    await monthly.record("visitor B", at(30));
+    assert.deepEqual(await readRollingVisitors(dir, at(30)), { estimate: 1, days: 30, from: at(1).toISOString(), complete: true });
+    assert.equal((await readdir(mauDir)).some(name => name.startsWith("2026-10-26-")), false);
+
+    await unlink(keyFile);
+    assert.equal(await readRollingVisitors(dir, at(30)), null);
+    const restarted = new RollingVisitors(dir);
+    await restarted.record("visitor C", at(30));
+    assert.deepEqual(await readRollingVisitors(dir, at(30)), { estimate: 1, days: 1, from: at(30).toISOString(), complete: false });
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("only authenticated settings readers can see the MAU estimate", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "traffic-mau-admin-"));
+  const api = createServer((req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    if (req.url?.startsWith("/api/admin/") && req.headers.cookie !== "admin=allowed") res.writeHead(401);
+    if (res.statusCode === 401) return res.end("{}");
+    if (req.url === "/api/admin/settings") return res.end(JSON.stringify({ contact: { wechatQr: null, feishuQr: null }, targets: [], budgets: [] }));
+    if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "Fixture admin" }));
+    res.end("{}");
+  });
+  const web = await startWebServer(api, { ACCESS_STATS_DIR: dir, ACCESS_MAU_ENABLED: "true" });
+  try {
+    await new RollingVisitors(dir).record("visitor A", new Date());
+    const unauthenticated = await fetch(web.origin + "/admin/settings", { redirect: "manual" });
+    assert.equal(unauthenticated.status, 302);
+    assert.match(unauthenticated.headers.get("location") ?? "", /^\/api\/auth\/login/);
+    assert.doesNotMatch(await unauthenticated.text(), /估算月活/);
+    const response = await fetch(web.origin + "/admin/settings", { headers: { cookie: "admin=allowed" } });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+    const body = await response.text();
+    assert.match(body, /估算月活（MAU）/);
+    assert.match(body, /已记录 1 \/ 30 天/);
+    assert.doesNotMatch(body, /visitor A|key\.state/);
+  } finally { await web.stop(); await rm(dir, { recursive: true, force: true }); }
 });

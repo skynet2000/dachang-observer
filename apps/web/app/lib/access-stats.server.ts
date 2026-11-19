@@ -3,6 +3,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, writeFile, readdir, unlink } from "node:fs/promises";
 import { isIP } from "node:net";
 import path from "node:path";
+import { RollingVisitors } from "./rolling-visitors.server.ts";
 
 interface Visit { method?: string; url?: string; headers: Record<string, string | string[] | undefined>; status: number; type: string; clientAddress?: string }
 interface Day { day: string; views: number; bots: number; errors: number; notFound: number; pages: Record<string, number>; uniqueVisitors?: number; uvSince?: string }
@@ -16,7 +17,12 @@ export class AccessStats {
   private now: () => Date;
   private uvSince = "";
   private visitors: VisitorState | null = null;
-  constructor(dir: string, now = () => new Date()) { this.dir = dir; this.now = now; }
+  private readonly monthly: RollingVisitors | null;
+  constructor(dir: string, now = () => new Date(), monthlyEnabled = false) {
+    this.dir = dir;
+    this.now = now;
+    this.monthly = monthlyEnabled ? new RollingVisitors(dir) : null;
+  }
 
   record(visit: Visit): Promise<void> {
     if (visit.method !== "GET" || /prefetch/i.test(String(visit.headers["sec-purpose"] ?? visit.headers.purpose ?? ""))) return Promise.resolve();
@@ -49,6 +55,7 @@ export class AccessStats {
       // aggregate files deliberately exclude this .state file and its random HMAC key.
       const stateFile = path.join(this.dir, "uv-current.state");
       let changed = false;
+      let identity: string | undefined;
       if (this.visitors?.day !== day) {
         let saved: { day: string; key: string; since: string; visitors: string[] } | null = null;
         try { saved = JSON.parse(await readFile(stateFile, "utf8")); }
@@ -69,7 +76,8 @@ export class AccessStats {
         data.pages[key] = (data.pages[key] ?? 0) + 1;
         const address = (visit.clientAddress ?? "").replace(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i, "$1").toLowerCase();
         if (isIP(address)) {
-          const visitor = createHmac("sha256", this.visitors.key).update(JSON.stringify([address, String(visit.headers["user-agent"] ?? "")])).digest("hex");
+          identity = JSON.stringify([address, String(visit.headers["user-agent"] ?? "")]);
+          const visitor = createHmac("sha256", this.visitors.key).update(identity).digest("hex");
           if (!this.visitors.visitors.has(visitor)) { this.visitors.visitors.add(visitor); changed = true; }
         }
       } else if (visit.status >= 500) data.errors++;
@@ -84,6 +92,7 @@ export class AccessStats {
       await writeFile(temp, JSON.stringify(data), { mode: 0o600 }); await rename(temp, file);
       const oldest = beijingDay(new Date(at.getTime() - 29 * 86400_000));
       for (const old of await readdir(this.dir)) if (/^\d{4}-\d{2}-\d{2}\.json$/.test(old) && old < `${oldest}.json`) await unlink(path.join(this.dir, old));
+      if (identity) await this.monthly?.record(identity, at);
     });
     this.pending = run.catch(() => {});
     return run;
