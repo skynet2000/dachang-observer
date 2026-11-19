@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import type { Route } from "./+types/settings";
 import type { AdminSettings } from "@aihot/contracts/admin";
 import { adminGet } from "../../lib/admin.server";
+import { readRollingVisitors } from "../../lib/rolling-visitors.server";
 import { useAdminAction } from "../../features/admin/action";
 import { bj, num } from "../../features/admin/format";
 import { AdminPage, Badge, Button, Card, DataTable, Input, ReasonDialog } from "../../features/admin/ui";
@@ -10,7 +11,11 @@ import { toast } from "../../features/admin/toast";
 
 
 export async function loader({ request }: Route.LoaderArgs) {
-  return adminGet<AdminSettings>(request, "/api/admin/settings");
+  const settings = await adminGet<AdminSettings>(request, "/api/admin/settings");
+  const dir = process.env.ACCESS_STATS_DIR;
+  const monthlyVisitors = dir && process.env.ACCESS_MAU_ENABLED === "true"
+    ? await readRollingVisitors(dir).catch(() => null) : undefined;
+  return { ...settings, monthlyVisitors };
 }
 
 export const meta: Route.MetaFunction = () => [{ title: `设置 · ${SITE.name} 后台` }];
@@ -102,6 +107,14 @@ function TargetToggle({ t }: { t: AdminSettings["targets"][number] }) {
 export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
   return (
     <AdminPage title="设置" subtitle="不改代码即可替换的运营设置。每次修改都写入审计记录。">
+      {s.monthlyVisitors !== undefined && <Card className="mb-5" title="访问统计">
+        <div className="text-[13px] font-medium text-ink-3">估算月活（MAU）</div>
+        <div className="num mt-1 text-3xl font-semibold text-ink">{s.monthlyVisitors?.estimate == null ? "暂无数据" : num(s.monthlyVisitors.estimate)}</div>
+        {s.monthlyVisitors && <p className="mt-2 text-[13px] text-ink-3">
+          {s.monthlyVisitors.complete ? "最近 30 个北京时间自然日（含今天截至当前）" :
+            `近期去重访客，已记录 ${s.monthlyVisitors.days} / 30 天 · 覆盖起点 ${bj(s.monthlyVisitors.from)}`}
+        </p>}
+      </Card>}
       <div className="grid gap-5 xl:grid-cols-2">
         <Card title="关于页二维码">
           <div className="space-y-5">

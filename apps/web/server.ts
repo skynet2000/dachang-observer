@@ -81,7 +81,8 @@ async function serveStatic(pathname: string, res: import("node:http").ServerResp
 }
 
 // One bad request must never take the process down: answer it and keep serving.
-const accessStats = process.env.ACCESS_STATS_DIR ? new AccessStats(process.env.ACCESS_STATS_DIR) : null;
+const accessStats = process.env.ACCESS_STATS_DIR
+  ? new AccessStats(process.env.ACCESS_STATS_DIR, undefined, process.env.ACCESS_MAU_ENABLED === "true") : null;
 const server = createServer((req, res) => {
   if (accessStats) res.once("finish", () => {
     void accessStats.record({ method: req.method, url: req.url, headers: req.headers, status: res.statusCode, type: String(res.getHeader("Content-Type") ?? ""), clientAddress: clientAddress(req) })

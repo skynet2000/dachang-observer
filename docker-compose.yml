@@ -83,6 +83,7 @@ services:
       WEB_HOST: 0.0.0.0
       WEB_PORT: "3000"
       ACCESS_STATS_DIR: /traffic
+      ACCESS_MAU_ENABLED: ${ACCESS_MAU_ENABLED:-false}
     volumes:
       - traffic:/traffic
     ports:
