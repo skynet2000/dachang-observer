@@ -12,9 +12,9 @@ after(closeDb);
 const answer = { choices: [{ message: { content: '{"ok":true}' } }], usage: { prompt_tokens: 2, completion_tokens: 4 } };
 const call = (model = "intern-flash") => chatJson({ model, purpose: "fallback-test", subject: tag(), promptVersion: tag(), system: "Return JSON", user: "test", schema: z.object({ ok: z.boolean() }) });
 async function withProviders(primary: Parameters<typeof stub>[0], run: (p: Awaited<ReturnType<typeof stub>>, f: Awaited<ReturnType<typeof stub>>) => Promise<void>) {
-  const p = await stub(primary), m = await stub(() => new Reply(402, { error: "Insufficient Balance" })), third = await stub(() => new Reply(402, { error: "Insufficient Balance" })), f = await stub(() => answer);
-  Object.assign(process.env, { INTERN_BASE_URL: p.url, INTERN_API_KEY: "test", SILICONFLOW_BASE_URL: m.url, SILICONFLOW_API_KEY: "test", AIHUBMIX_BASE_URL: third.url, AIHUBMIX_API_KEY: "test", DEEPSEEK_BASE_URL: f.url, DEEPSEEK_API_KEY: "test" });
-  try { await run(p, f); } finally { await p.close(); await m.close(); await third.close(); await f.close(); }
+  const p = await stub(primary), m = await stub(() => new Reply(402, { error: "Insufficient Balance" })), f = await stub(() => answer);
+  Object.assign(process.env, { INTERN_BASE_URL: p.url, INTERN_API_KEY: "test", AIHUBMIX_BASE_URL: m.url, AIHUBMIX_API_KEY: "test", DEEPSEEK_BASE_URL: f.url, DEEPSEEK_API_KEY: "test" });
+  try { await run(p, f); } finally { await p.close(); await m.close(); await f.close(); }
 }
 
 test("successful priority answers use the exact requested version and never pay the fallback", async () => {
@@ -77,19 +77,19 @@ test("unknown quota pricing is allowed only without a monetary cap and never fab
   } finally { if (before === undefined) delete process.env.LLM_DAILY_BUDGET_CNY; else process.env.LLM_DAILY_BUDGET_CNY = before; }
 });
 
-test("a timed-out primary retains an unknown receipt and uses only one fallback", async () => {
+test("a timed-out primary retains an unknown receipt and follows the fallback chain once", async () => {
   await withProviders(async () => { await new Promise(resolve => setTimeout(resolve, 800)); return answer; }, async (p, f) => {
     const result = await chatJson({ model: "intern-flash", purpose: "timeout-fallback-test", subject: tag(), promptVersion: tag(), system: "JSON", user: "test", schema: z.object({ ok: z.boolean() }), timeoutMs: 500 });
     assert.equal(result.model, "deepseek-flash"); assert.equal(p.hits(), 1); assert.equal(f.hits(), 1);
     const rows = await sql`SELECT service,status FROM receipts WHERE purpose='timeout-fallback-test' ORDER BY id`;
-    assert.deepEqual(rows.map(r => [r.service, r.status]), [["intern", "unknown"], ["siliconflow", "failed"], ["aihubmix", "failed"], ["deepseek", "received"]]);
+    assert.deepEqual(rows.map(r => [r.service, r.status]), [["intern", "unknown"], ["aihubmix", "failed"], ["deepseek", "received"]]);
   });
 });
 
-test("production routes use SiliconFlow in the middle and exclude the retired provider", () => {
-  assert.equal(MODELS["intern-flash"]!.fallback, "siliconflow-flash");
-  assert.equal(MODELS["siliconflow-flash"]!.fallback, "aihubmix-flash");
-  assert.equal(MODELS["intern-flash-think"]!.fallback, "siliconflow-flash-think");
-  assert.equal(MODELS["siliconflow-flash-think"]!.fallback, "aihubmix-flash-think");
-  assert.ok(!Object.values(MODELS).some(model => model.service === "scnet"));
+test("production uses Intern, AIHubMix, and DeepSeek in order for both modes", () => {
+  assert.equal(MODELS["intern-flash"]!.fallback, "aihubmix-flash");
+  assert.equal(MODELS["intern-flash-think"]!.fallback, "aihubmix-flash-think");
+  assert.equal(MODELS["aihubmix-flash"]!.fallback, "deepseek-flash");
+  assert.equal(MODELS["aihubmix-flash-think"]!.fallback, "deepseek-flash-think");
+  assert.ok(!Object.values(MODELS).some(model => model.service === "siliconflow" || model.service === "scnet"));
 });

@@ -32,21 +32,17 @@ export function reserveModelCost(baseUrl: string, body: Record<string, unknown>)
   const unlimitedToday = process.env.LLM_BUDGET_UNLIMITED_DATE === beijingDate(new Date());
   if (aihubmix && dailyLimit !== null && !unlimitedToday) throw new Error("A finite CNY budget cannot bound USD calls without verified currency conversion");
   const policy = aihubmix ? AIHUBMIX_COST_POLICY : MODEL_COST_POLICY;
-  // SiliconFlow publishes the same peak prices as the official Flash endpoint; use that upper bound.
-  const siliconflow = baseUrl.replace(/\/$/, "") === "https://api.siliconflow.cn/v1" && body.model === "deepseek-ai/DeepSeek-V4.1-Flash";
-  if (!aihubmix && !siliconflow && (new URL(baseUrl).origin !== MODEL_COST_POLICY.origin || body.model !== MODEL_COST_POLICY.model)) {
+  if (!aihubmix && (new URL(baseUrl).origin !== MODEL_COST_POLICY.origin || body.model !== MODEL_COST_POLICY.model)) {
     // The quota provider reports tokens but no CNY bill. Keep its monetary cost unknown, not a
     // fabricated zero or DeepSeek's retail price. A future finite cap must fail closed.
     const quotaModel = new URL(baseUrl).origin === "https://discovery-api.intern-ai.org.cn" && body.model === "deepseek-v4.1-flash-1017";
     if (dailyLimit === null && quotaModel) return undefined;
     throw new Error("Cost budget requires the verified DeepSeek Flash endpoint and model");
   }
-  const fields = ["model", "messages", "temperature", "max_tokens", "response_format", "thinking", "reasoning_effort", ...(siliconflow ? ["enable_thinking", "thinking_budget"] : [])];
+  const fields = ["model", "messages", "temperature", "max_tokens", "response_format", "thinking", "reasoning_effort"];
   if (Object.keys(body).some(key => !fields.includes(key))) throw new Error("Cannot bound extra model request fields");
   if (body.reasoning_effort !== undefined && ![...(aihubmix ? ["none"] : []), "low", "high", "max"].includes(String(body.reasoning_effort))) throw new Error("Unsupported reasoning effort");
   if (!tokens(body.max_tokens) || body.max_tokens === 0 || !Array.isArray(body.messages)) throw new Error("Cannot bound model request cost");
-  const thinkingBudget = siliconflow ? body.thinking_budget ?? 0 : 0;
-  if (!tokens(thinkingBudget) || thinkingBudget > 32768) throw new Error("Unsupported thinking budget");
   let inputBytes = 0;
   for (const message of body.messages as Array<{ content: unknown }>) {
     if (typeof message.content === "string") inputBytes += Buffer.byteLength(message.content);
@@ -55,6 +51,6 @@ export function reserveModelCost(baseUrl: string, body: Record<string, unknown>)
     } else throw new Error("Cost budget supports text-only model requests");
   }
   const maxAmount = roundUp(((inputBytes + body.messages.length * 1024) * policy.inputPerMillion
-    + (body.max_tokens + thinkingBudget) * policy.outputPerMillion) / 1e6);
+    + body.max_tokens * policy.outputPerMillion) / 1e6);
   return { maxAmount, dailyLimit: unlimitedToday ? null : dailyLimit, currency: aihubmix ? "USD" : "CNY" };
 }

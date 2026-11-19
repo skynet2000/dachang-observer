@@ -1,4 +1,16 @@
-# 模型优先通道与回退（2026-10-30）
+# 模型优先通道与回退
+
+## 当前三层回退
+
+2026-11-19 按站主要求移除硅基流动。普通与推理任务使用同一通道顺序，各自保留对应预设。
+
+| 层 | 通道 | 普通 / 推理预设 |
+| --- | --- | --- |
+| 1 | 书生 | intern-flash / intern-flash-think |
+| 2 | 推理时代 AIHubMix | aihubmix-flash / aihubmix-flash-think |
+| 3 | DeepSeek 官方 | deepseek-flash / deepseek-flash-think |
+
+实际起点按后台覆盖、环境变量、代码默认解析。回退由 [site/models.ts](../site/models.ts) 定义。历史用量和费用回执保留。下文早期通道安排属于历史记录。
 
 用户授权优先使用书生端砚 `https://discovery-api.intern-ai.org.cn/v1` 的 `deepseek-v4.1-flash-1017`，不可用时先回退硅基流动的 `deepseek-ai/DeepSeek-V4.1-Flash`，再回退原付费 DeepSeek。2026-10-25起按用户要求，每个启用自动信源每120分钟采集一次；RSS/网页下载本身通常不调用模型。
 

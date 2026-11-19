@@ -147,19 +147,19 @@ Additional independent access (2026-10-25): Economic Observer’s technology pag
 
 ## Models and costs
 
-Production prefers **Intern → SiliconFlow DeepSeek → AIHubMix 1017 → official paid DeepSeek**. Known unavailable free layers share a cooldown across tasks and processes, followed by one recovery probe. Transient failures and invalid output receive one bounded free retry; local concurrency waiting never triggers paid fallback:
+Production prefers **Intern → AIHubMix 1017 → official paid DeepSeek**. Known unavailable free layers share a cooldown across tasks and processes, followed by one recovery probe. Transient failures and invalid output receive one bounded free retry; local concurrency waiting never triggers paid fallback:
 
 | Work | Preferred | Fallback |
 | --- | --- | --- |
-| Writing, structure, grouping/review, digests, weekly/monthly assistance and translation | Intern / `deepseek-v4.1-flash-1017`, preset `intern-flash` | SiliconFlow `siliconflow-flash`, then AIHubMix `aihubmix-flash`, then official DeepSeek / `deepseek-flash` |
-| Industry relevance screening (active) | Same version with low-effort reasoning, preset `intern-flash-think` | SiliconFlow `siliconflow-flash-think`, then AIHubMix `aihubmix-flash-think`, then `deepseek-flash-think` |
-| Selection scoring (paused; configuration retained) | Same version with low-effort reasoning, preset `intern-flash-think` | SiliconFlow `siliconflow-flash-think`, then AIHubMix `aihubmix-flash-think`, then `deepseek-flash-think` |
+| Writing, structure, grouping/review, digests, weekly/monthly assistance and translation | Intern / `deepseek-v4.1-flash-1017`, preset `intern-flash` | AIHubMix `aihubmix-flash`, then official DeepSeek / `deepseek-flash` |
+| Industry relevance screening (active) | Same version with low-effort reasoning, preset `intern-flash-think` | AIHubMix `aihubmix-flash-think`, then `deepseek-flash-think` |
+| Selection scoring (paused; configuration retained) | Same version with low-effort reasoning, preset `intern-flash-think` | AIHubMix `aihubmix-flash-think`, then `deepseek-flash-think` |
 
-SCNet was removed on 2026-10-30 after repeated insufficient-balance responses. SiliconFlow now serves the middle tier using `deepseek-ai/DeepSeek-V4.1-Flash`; it is priced, and gift balance is not a permanent free guarantee. Historical usage remains in reports.
+SCNet and SiliconFlow have been retired from the route. Their historical usage receipts are retained.
 
 Presets live in [`site/models.ts`](site/models.ts). Effective precedence is **admin settings → environment variables → code defaults**. A fresh checkout still defaults to DeepSeek; adding an Intern key alone does not switch every step. Follow [Routing](docs/model-routing.md) and verify each active choice. The paid official name is a provider alias, not a permanent date-pinned version guarantee.
 
-The project enforces 45 RPM for Intern, 30 RPM for SiliconFlow and three in-flight requests per protected endpoint/model. Free availability still depends on platform quotas, RPM/TPM and channel capacity. Paid fallback consumes balance. The current owner has removed the CNY amount cap while retaining request limits, concurrency, kill switches and receipt protection. An unknown request outcome can still have a cost; do not retry blindly. Dashboard/email amounts estimate this site's receipts, not the provider's final bill or other projects using the same key.
+The project enforces 45 RPM for Intern, 30 RPM for AIHubMix and three in-flight requests per protected endpoint/model. Free availability still depends on platform quotas, RPM/TPM and channel capacity. Paid fallback consumes balance. The current owner has removed the CNY amount cap while retaining request limits, concurrency, kill switches and receipt protection. An unknown request outcome can still have a cost; do not retry blindly. Dashboard/email amounts estimate this site's receipts, not the provider's final bill or other projects using the same key.
 
 AIHubMix is the third tier (`deepseek-v4.1-flash-1017`). Its original USD ledger is retained; operating emails convert USD into CNY using the latest available quote, with source and quote time; see [routing](docs/model-routing.md).
 
