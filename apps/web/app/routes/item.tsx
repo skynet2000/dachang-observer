@@ -460,7 +460,7 @@ function ItemView({ item }: { item: SiteItemDetail }) {
         <RailSection title={translate("标签")}>
           <div className="flex flex-wrap gap-1.5">
             {item.tags.slice(0, 8).map((t) => (
-              <Link key={t} to={`/all?tag=${encodeURIComponent(t)}`} className="chip">
+              <Link key={t} to={`/all?tag=${encodeURIComponent(t)}`} rel="nofollow" className="chip">
                 #<Text>{t}</Text>
               </Link>
             ))}
@@ -603,7 +603,7 @@ function ItemView({ item }: { item: SiteItemDetail }) {
                 </Link>
               ))}
               {item.tags.slice(0, 6).map((t) => (
-                <Link key={t} to={`/all?tag=${encodeURIComponent(t)}`} className="chip">
+                <Link key={t} to={`/all?tag=${encodeURIComponent(t)}`} rel="nofollow" className="chip">
                   #<Text>{t}</Text>
                 </Link>
               ))}

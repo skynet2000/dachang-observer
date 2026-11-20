@@ -327,6 +327,16 @@ export function registerMcp(app: FastifyInstance) {
     if (host === null || !allowed.has(host)) return reply.code(421).type("application/json").send({ error: "misdirected_request" });
     if (!allowedOrigin(req.headers.origin, hosts)) return reply.code(403).type("application/json").send({ error: "origin_not_allowed" });
     corsHeaders(reply, req.headers.origin);
+    if (req.method === "GET") {
+      reply.header("Vary", "Origin, Accept");
+      const media = (req.headers.accept ?? "").toLowerCase().split(",").map(value => value.trim().split(";", 1)[0]?.trim());
+      const protocol = media.includes("text/event-stream") || req.headers["mcp-protocol-version"] !== undefined
+        || req.headers["mcp-session-id"] !== undefined || req.headers["mcp-method"] !== undefined
+        || req.headers["last-event-id"] !== undefined;
+      // Document and generic crawler GETs open the guide. An MCP stream request reaches the SDK.
+      if (!protocol) return reply.redirect("/agent", 303);
+    }
+    reply.header("X-Robots-Tag", "noindex");
     // One JSON-RPC message per request (batches were dropped from the protocol).
     if (req.method === "POST" && Array.isArray(req.body)) {
       return reply.code(400).type("application/json").send({ jsonrpc: "2.0", error: { code: -32600, message: "Batch requests are not supported" }, id: null });

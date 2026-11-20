@@ -46,7 +46,7 @@ export function DayList({ items, filters, todayCount = null, headerAside }: { it
  * Numbered pages (the list stays crawlable), with previous / next at the ends. Phones show previous,
  * "2 / 50" and next as large buttons; the numbers stay in the page for crawlers.
  */
-export function Pagination({ page, pageCount, href }: { page: number; pageCount: number; href: (p: number) => string }) {
+export function Pagination({ page, pageCount, href, rel }: { page: number; pageCount: number; href: (p: number) => string; rel?: string }) {
   const translate = useText();
   if (pageCount <= 1) return null;
   const pages = [...new Set([1, pageCount, page - 2, page - 1, page, page + 1, page + 2].filter((p) => p >= 1 && p <= pageCount))].sort((a, b) => a - b);
@@ -54,7 +54,7 @@ export function Pagination({ page, pageCount, href }: { page: number; pageCount:
   return (
     <nav aria-label={translate("分页")} className="mt-6 flex flex-wrap items-center justify-center gap-3 lg:gap-1">
       {page > 1 && (
-        <IntentLink to={href(page - 1)} className={`${btn} h-11 border border-line-strong bg-surface px-5 text-[14px] text-ink-2 active:bg-bg-sunk lg:h-9 lg:px-3 lg:text-[13px] lg:text-ink-3 lg:hover:border-ink-4 lg:hover:text-ink`}><Text>
+        <IntentLink to={href(page - 1)} rel={rel} className={`${btn} h-11 border border-line-strong bg-surface px-5 text-[14px] text-ink-2 active:bg-bg-sunk lg:h-9 lg:px-3 lg:text-[13px] lg:text-ink-3 lg:hover:border-ink-4 lg:hover:text-ink`}><Text>
           上一页
         </Text></IntentLink>
       )}
@@ -66,6 +66,7 @@ export function Pagination({ page, pageCount, href }: { page: number; pageCount:
           {i > 0 && p - pages[i - 1]! > 1 && <span className="px-0.5 text-ink-4">…</span>}
           <IntentLink
             to={href(p)}
+            rel={rel}
             aria-current={p === page ? "page" : undefined}
             className={`num ${btn} ${p === page ? "bg-ink font-semibold text-bg" : "text-ink-3 hover:bg-bg-sunk hover:text-ink"}`}
           >
@@ -74,7 +75,7 @@ export function Pagination({ page, pageCount, href }: { page: number; pageCount:
         </span>
       ))}
       {page < pageCount && (
-        <IntentLink to={href(page + 1)} className={`${btn} h-11 gap-0.5 border border-line-strong bg-surface px-5 text-[14px] text-ink-2 active:bg-bg-sunk lg:h-9 lg:px-3 lg:text-[13px] lg:text-ink-3 lg:hover:border-ink-4 lg:hover:text-ink`}><Text>
+        <IntentLink to={href(page + 1)} rel={rel} className={`${btn} h-11 gap-0.5 border border-line-strong bg-surface px-5 text-[14px] text-ink-2 active:bg-bg-sunk lg:h-9 lg:px-3 lg:text-[13px] lg:text-ink-3 lg:hover:border-ink-4 lg:hover:text-ink`}><Text>
           下一页 </Text><IconChevronRight size={14} />
         </IntentLink>
       )}
