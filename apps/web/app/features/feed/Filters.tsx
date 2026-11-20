@@ -37,6 +37,7 @@ function filterKey(category: CategoryKey | null): string {
 export function CategoryTabs({ base, category, className = "" }: { base: string; category: CategoryKey | null; className?: string }) {
   const translate = useText();
   const [params] = useSearchParams();
+  const combinesFilters = params.has("tag") || params.has("q");
   const rail = useRef<HTMLElement>(null);
   useEffect(() => {
     const revealActive = () => {
@@ -54,6 +55,7 @@ export function CategoryTabs({ base, category, className = "" }: { base: string;
   }, [category, translate]);
   return <nav ref={rail} aria-label={translate("栏目")} className={`category-tabs ${className}`}>
     {filterOptions(base, params, "综合").map(option => <IntentLink key={option.key} to={option.to} preventScrollReset
+      rel={combinesFilters ? "nofollow" : undefined}
       aria-current={option.key === filterKey(category) ? "page" : undefined}><Text>{option.label}</Text></IntentLink>)}
   </nav>;
 }

@@ -6,6 +6,24 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
 import { MCP_TOOLS } from "@aihot/contracts/mcp";
 import { registerMcp } from "../apps/api/src/routes/mcp.ts";
 
+test("a document GET opens the MCP guide without changing the protocol GET", async () => {
+  const app = Fastify();
+  registerMcp(app);
+  try {
+    const get = (accept: string) => app.inject({ url: "/api/mcp", headers: { host: "localhost", accept } });
+    const page = await get("text/html,application/xhtml+xml");
+    assert.equal(page.statusCode, 303);
+    assert.equal(page.headers.location, "/agent");
+    assert.equal(page.headers.vary, "Origin, Accept");
+    const stream = await get("text/html, text/event-stream");
+    assert.equal(stream.statusCode, 405);
+    assert.equal(stream.headers["x-robots-tag"], "noindex");
+    assert.equal((await get("*/*")).statusCode, 405);
+  } finally {
+    await app.close();
+  }
+});
+
 // The SDK advertises tools.listChanged unless told otherwise, and a 2026-07-28 client that handles list
 // changes then keeps a listen stream open for its whole session: an idle connection per agent. A client
 // that listens anyway gets the protocol's answer for a method the server does not implement, at once.

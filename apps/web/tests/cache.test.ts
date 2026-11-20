@@ -21,7 +21,7 @@ const api = createServer((req, res) => {
     return metaAfterDeadline ? setTimeout(respond, deadline * 1000 - Date.now() + 50) : respond();
   }
   if (url.pathname === "/api/site/pool") {
-    const filters = { channel: "all", category: url.searchParams.get("category"), tag: null };
+    const filters = { channel: "all", category: url.searchParams.get("category"), tag: url.searchParams.get("tag") };
     res.setHeader("X-Accel-Expires", `@${deadline}`);
     res.setHeader("Cache-Control", "public, max-age=30, s-maxage=30");
     return res.end(JSON.stringify({ filters, items: [], total:0, page:1, pageCount:1, todayCount:0, freshness:"2026-10-25T00:00:00Z", hot: null }));
@@ -67,6 +67,14 @@ test("public route subsets produce the same complete navigation data; filters st
   const body = await filtered.text();
   assert.ok(body.includes(readerCategory(category)));
   assert.notEqual(body, answers[0]);
+});
+
+test("combined feed filters keep their reader links without promoting them for crawling", async () => {
+  const plain = await (await fetch(`${origin}/all`)).text();
+  const filtered = await (await fetch(`${origin}/all?tag=fixture`)).text();
+  assert.doesNotMatch(plain, /name="robots" content="noindex/);
+  assert.match(filtered, /name="robots" content="noindex/);
+  assert.match(filtered, /<a[^>]*rel="nofollow"[^>]*href="\/all\?tag=fixture&amp;category=/);
 });
 
 test("navigation streams are plain text for download managers, including errors", async () => {

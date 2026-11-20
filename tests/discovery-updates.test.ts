@@ -13,7 +13,7 @@ import { sql, closeDb } from '@aihot/backend/db';
 import { config } from '@aihot/backend/config';
 import { installModules, type SitemapEntry } from '@aihot/backend/modules';
 import { EDITORIAL } from '@aihot/site';
-import { loadDiscoveryEntries } from '@aihot/backend/publication/sitemap';
+import { loadDiscoveryEntries, loadSitemap } from '@aihot/backend/publication/sitemap';
 import { submitIndexNow } from '@aihot/backend/operations/indexnow';
 
 const originalFetch = globalThis.fetch;
@@ -141,4 +141,25 @@ test('failed requests and failed inventories never acknowledge a batch', async (
   const [after] = await sql`SELECT value FROM settings WHERE key='indexnow.watermark'`;
   assert.deepEqual(after!.value, before!.value);
   assert.equal(batches.length, 1);
+});
+
+test('the published sitemap includes eligible events past the old 500-event limit', async () => {
+  await material('sitemap-history');
+  await sql`WITH events AS (
+    INSERT INTO stories (public_id,title,latest_at)
+    SELECT gen_random_uuid(), '历史事件 ' || n, now()-n*interval '1 day' FROM generate_series(1,502) AS n
+    RETURNING id
+  ), chapters AS (
+    INSERT INTO facts (public_id,story_id,title) SELECT gen_random_uuid()::text,id,'进展' FROM events
+    RETURNING id
+  )
+  INSERT INTO fact_articles (fact_id,article_id,role) SELECT id,'sitemap-history','primary' FROM chapters`;
+  const [{ public_id: oldest }] = await sql`SELECT public_id::text FROM stories WHERE title='历史事件 502'`;
+  const [{ public_id: merged }] = await sql`UPDATE stories SET merged_into=(SELECT id FROM stories WHERE title='历史事件 1')
+    WHERE title='历史事件 501' RETURNING public_id::text`;
+  const { xml } = await loadSitemap();
+  assert.equal((xml.match(/<loc>[^<]*\/story\//g) ?? []).length, 501);
+  assert.ok(xml.includes(`/story/${oldest}</loc>`));
+  assert.ok(!xml.includes(`/story/${merged}</loc>`));
+  assert.ok(xml.includes('/items/sitemap-history</loc>'));
 });

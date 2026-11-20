@@ -193,7 +193,7 @@ export default function AllPage() {
           <DayList items={data.items} filters={f} todayCount={f.q ? null : data.todayCount} />
         )}
       </div>
-      <Pagination page={data.page} pageCount={data.pageCount} href={(p) => pageHref(params, p)} />
+      <Pagination page={data.page} pageCount={data.pageCount} href={(p) => pageHref(params, p)} rel={f.q || hasFeedFilters(f) ? "nofollow" : undefined} />
       {data.page >= 50 && <p className="mt-4 text-center text-[12px] text-ink-4"><Text>最多提供 50 页，更早的内容请使用搜索或主题页。</Text></p>}
     </div>
   );
