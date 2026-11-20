@@ -330,8 +330,11 @@ export function registerMcp(app: FastifyInstance) {
     if (req.method === "GET") {
       reply.header("Vary", "Origin, Accept");
       const media = (req.headers.accept ?? "").toLowerCase().split(",").map(value => value.trim().split(";", 1)[0]?.trim());
-      // A document navigation opens the usage guide. An MCP stream request still reaches the SDK.
-      if (media.includes("text/html") && !media.includes("text/event-stream")) return reply.redirect("/agent", 303);
+      const protocol = media.includes("text/event-stream") || req.headers["mcp-protocol-version"] !== undefined
+        || req.headers["mcp-session-id"] !== undefined || req.headers["mcp-method"] !== undefined
+        || req.headers["last-event-id"] !== undefined;
+      // Document and generic crawler GETs open the guide. An MCP stream request reaches the SDK.
+      if (!protocol) return reply.redirect("/agent", 303);
     }
     reply.header("X-Robots-Tag", "noindex");
     // One JSON-RPC message per request (batches were dropped from the protocol).

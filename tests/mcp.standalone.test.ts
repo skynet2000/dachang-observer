@@ -6,19 +6,22 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
 import { MCP_TOOLS } from "@aihot/contracts/mcp";
 import { registerMcp } from "../apps/api/src/routes/mcp.ts";
 
-test("a document GET opens the MCP guide without changing the protocol GET", async () => {
+test("document and crawler GETs open the MCP guide without changing protocol requests", async () => {
   const app = Fastify();
   registerMcp(app);
   try {
-    const get = (accept: string) => app.inject({ url: "/api/mcp", headers: { host: "localhost", accept } });
-    const page = await get("text/html,application/xhtml+xml");
-    assert.equal(page.statusCode, 303);
-    assert.equal(page.headers.location, "/agent");
-    assert.equal(page.headers.vary, "Origin, Accept");
-    const stream = await get("text/html, text/event-stream");
+    const get = (headers: Record<string, string>) => app.inject({ url: "/api/mcp", headers: { host: "localhost", ...headers } });
+    const documentHeaders: Record<string, string>[] = [{ accept: "text/html,application/xhtml+xml" }, { accept: "*/*" }, {}];
+    for (const headers of documentHeaders) {
+      const page = await get(headers);
+      assert.equal(page.statusCode, 303);
+      assert.equal(page.headers.location, "/agent");
+      assert.equal(page.headers.vary, "Origin, Accept");
+    }
+    const stream = await get({ accept: "text/html, text/event-stream" });
     assert.equal(stream.statusCode, 405);
     assert.equal(stream.headers["x-robots-tag"], "noindex");
-    assert.equal((await get("*/*")).statusCode, 405);
+    assert.notEqual((await get({ accept: "*/*", "mcp-protocol-version": "2026-07-28" })).statusCode, 303);
   } finally {
     await app.close();
   }
