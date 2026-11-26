@@ -9339,6 +9339,108 @@
       "enabled": true
     },
     {
+      "id": "web-workercn-platform-workplace",
+      "name": "中工网 · 平台用工与劳动权益",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.workercn.cn/right/",
+        "parseMode": "html",
+        "itemSelector": ".articles-item-box ul.imgtxt1 > li",
+        "linkSelector": "h3 a[href^='/c/']",
+        "titleSelector": "h3 a",
+        "publishedAtSelector": ".info2",
+        "publishedAtUtcOffset": "+08:00",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": [
+          "https://www.workercn.cn/c/"
+        ],
+        "publishedAfter": "2026-10-31T16:00:00Z",
+        "_aihot": {
+          "initialBackfillLimit": 1,
+          "initialBackfillMonths": 1
+        },
+        "ingestNoiseFilter": {
+          "requireTitleAnyMatches": ["裁员", "辞退", "解约", "劳动", "工伤", "职伤", "社保", "薪酬", "工资", "报酬", "加班", "工时", "算法"],
+          "requireAnyMatches": ["互联网", "平台用工", "网约", "骑手", "快递员", "配送员", "主播", "直播", "从业者", "一键解约", "数字监工", "算法派单"]
+        }
+      },
+      "tier": "T2",
+      "owner_entity_id": null,
+      "signal_group_id": "media-workercn",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": ["国内", "职场", "平台用工"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "web-caixin-workplace",
+      "name": "财新 · 国内互联网职场",
+      "kind": "web_list",
+      "config": {
+        "url": "https://companies.caixin.com/",
+        "parseMode": "html",
+        "itemSelector": "div.boxa:has(> h4 > a[href^='https://companies.caixin.com/']), div.txt:has(> h3 > a[href^='https://companies.caixin.com/'])",
+        "linkSelector": "h4 a, h3 a",
+        "titleSelector": "h4 a, h3 a",
+        "publishedAtRegex": "(\\d{4}年\\d{1,2}月\\d{1,2}日\\s+\\d{2}:\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": [
+          "https://companies.caixin.com/"
+        ],
+        "publishedAfter": "2026-10-31T16:00:00Z",
+        "_aihot": {
+          "initialBackfillLimit": 1,
+          "initialBackfillMonths": 1
+        },
+        "ingestNoiseFilter": {
+          "requireTitleAnyMatches": ["裁员", "裁撤", "缩编", "撤并", "解散", "招聘", "岗位", "补偿", "薪酬", "降薪", "绩效", "员工", "劳动争议", "组织调整", "人事", "离职", "卸任", "换帅", "接任", "全员信"],
+          "requireAnyMatches": ["互联网", "大厂", "腾讯", "阿里", "支付宝", "钉钉", "飞猪", "淘宝", "字节", "抖音", "飞书", "京东", "美团", "小红书", "拼多多", "快手", "滴滴", "百度", "网易", "携程", "小米", "华为", "哔哩哔哩", "B站", "知乎", "米哈游", "得物", "SHEIN", "DeepSeek", "智谱", "MiniMax", "月之暗面"]
+        }
+      },
+      "tier": "T2",
+      "owner_entity_id": null,
+      "signal_group_id": "media-caixin",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": ["国内", "职场", "组织与人才"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "rss-youxichaguan-layoffs",
+      "name": "游戏茶馆 · 裁撤与团队",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://youxichaguan.com/?s=%E8%A3%81%E5%91%98&feed=rss2",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": [
+          "https://youxichaguan.com/archives/"
+        ],
+        "publishedAfter": "2026-10-31T16:00:00Z",
+        "_aihot": {
+          "initialBackfillLimit": 1,
+          "initialBackfillMonths": 1
+        },
+        "ingestNoiseFilter": {
+          "requireTitleAnyMatches": ["裁员", "裁撤", "缩编", "团队解散", "团队调整", "工作室关停", "工作室关闭", "招聘冻结", "离职", "失业", "人员变动"],
+          "requireAnyMatches": ["国内", "中国", "腾讯", "网易", "字节", "米哈游", "叠纸", "莉莉丝", "西山居", "完美世界", "盛趣", "吉比特", "游族", "三七互娱", "心动", "灵犀互娱", "沐瞳", "库洛", "鹰角", "FunPlus", "游戏科学"]
+        }
+      },
+      "tier": "T2",
+      "owner_entity_id": null,
+      "signal_group_id": "media-youxichaguan",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": ["国内", "职场", "游戏", "组织与人才"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
       "id": "web-cac-releases",
       "name": "网信办 · 网信发布",
       "kind": "web_list",

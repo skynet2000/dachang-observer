@@ -8,6 +8,7 @@ import scope from "./scope.json" with { type: "json" };
 const STATE = "maimai.public-leads";
 const FEED = "https://decemberpei.cyou/rssbox/maimai_hot.xml";
 const BACKUP = "https://api.whatshot.top/pro-communities/maimai-hot";
+const RECENT_DAYS = 7;
 const HISTORY_DAYS = 30;
 const LEADS_PER_PAGE = 50;
 export const PUBLIC_LEAD_QUIET_MS = 24 * 3600_000;
@@ -150,18 +151,13 @@ async function saveState(value: Record<string, unknown>) {
 /** Independent public projection. These observations never enter news, reports, ranking or RSS. */
 export async function readPublicLeads(history = false, requestedPage = 1) {
   const [status] = await sql`SELECT value FROM settings WHERE key=${STATE}`;
-  const window = history
-    ? sql`first_seen_at >= now()-${HISTORY_DAYS}::int*interval '1 day'`
-    : sql`last_seen_at > now()-interval '2 days' AND first_seen_at > now()-interval '7 days'`;
-  let page = 1, pageCount = 1;
-  if (history) {
-    const [row] = await sql<{ count: number }[]>`SELECT count(*)::int AS count FROM maimai_public_leads WHERE visible AND ${window}`;
-    pageCount = Math.max(1, Math.ceil((row?.count ?? 0) / LEADS_PER_PAGE));
-    if (Number.isSafeInteger(requestedPage)) page = Math.max(1, Math.min(requestedPage, pageCount));
-  }
+  const window = sql`first_seen_at >= now()-${history ? HISTORY_DAYS : RECENT_DAYS}::int*interval '24 hours'`;
+  const [row] = await sql<{ count: number }[]>`SELECT count(*)::int AS count FROM maimai_public_leads WHERE visible AND ${window}`;
+  const pageCount = Math.max(1, Math.ceil((row?.count ?? 0) / LEADS_PER_PAGE));
+  const page = Number.isSafeInteger(requestedPage) ? Math.max(1, Math.min(requestedPage, pageCount)) : 1;
   const items = await sql`SELECT post_id AS id,url,topic_url AS "topicUrl",title,left(excerpt,240) AS excerpt,likes,comments,published_at AS "publishedAt",
     first_seen_at AS "firstSeenAt",last_seen_at AS "lastSeenAt" FROM maimai_public_leads
     WHERE visible AND ${window}
     ORDER BY first_seen_at DESC,post_id DESC LIMIT ${LEADS_PER_PAGE} OFFSET ${(page-1)*LEADS_PER_PAGE}`;
-  return { status: status?.value ?? null, items, ...(history ? { page, pageCount } : {}) };
+  return { status: status?.value ?? null, items, page, pageCount };
 }

@@ -68,10 +68,12 @@ for(const width of [390,1440])test(`public leads separate unknown publication ti
     await expect(page.getByRole("heading",{name:"第二页的团队缩编讨论"})).toBeVisible();
     await expect(page.getByText(/原发时间（北京时间）/)).toBeVisible();
     await expect(page.locator('time[datetime="2026-11-05T01:00:00Z"]')).toHaveText("2026-11-05 09:00");
-    await page.getByRole("link",{name:"近期",exact:true}).click();
+    await page.getByRole("link",{name:"近 7 天",exact:true}).click();
     await expect(page.getByRole("heading",{name:"腾讯绩效与年终奖讨论"})).toBeVisible();
+    await expect(page.getByText(/本站近 7 天首次收录/)).toBeVisible();
     await page.getByRole("button",{name:"Switch to English",exact:true}).click();
     await expect(page.getByRole("heading",{level:1,name:"Workplace discussions"})).toBeVisible();
+    await expect(page.getByRole("link",{name:"Past 7 days",exact:true})).toBeVisible();
     await expect(page.getByRole("link",{name:"Past 30 days",exact:true})).toBeVisible();
     await expect(page.locator("article").getByText("Publication time unverified",{exact:true})).toBeVisible();
   } finally { await context.close(); }
