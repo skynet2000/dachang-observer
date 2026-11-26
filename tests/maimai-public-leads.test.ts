@@ -68,12 +68,29 @@ test("public collection is independent from publications and preserves discovery
     await collectPublicLeads({topics:async()=>[topic],posts:async()=>[]});
     assert.equal((await readPublicLeads()).status.ok,true);
     await sql`UPDATE maimai_public_leads SET last_seen_at=now()-interval '3 days'`;
-    assert.equal((await readPublicLeads()).items.length,0);
+    assert.deepEqual((await readPublicLeads()).items.map(item => item.id), ["123"]);
     const history = await readPublicLeads(true);
     assert.deepEqual(history.items.map(item => item.id), ["123"]);
     assert.equal(+history.items[0].firstSeenAt, +first);
     assert.equal(history.items[0].publishedAt, null);
   } finally { process.env.COLLECT_ENABLED="false"; }
+});
+
+test("recent pages use the first discovery time even after a post is rediscovered", async () => {
+  await sql`UPDATE maimai_public_leads SET first_seen_at=now()-interval '31 days'`;
+  await sql`INSERT INTO maimai_public_leads(post_id,url,topic_url,title,excerpt,likes,comments,first_seen_at,last_seen_at,visible)
+    SELECT n::text,'https://maimai.cn/post/'||n,${topic},'职场讨论','原帖内容',5,0,
+      now()-CASE WHEN n=8100 THEN interval '8 days' ELSE interval '6 days 23 hours' END,
+      now()-CASE WHEN n=8100 THEN interval '1 hour' ELSE interval '3 days' END,n<>8152
+    FROM generate_series(8100,8152) AS n`;
+  const first = await readPublicLeads();
+  const second = await readPublicLeads(false, 2);
+  assert.equal(first.pageCount, 2);
+  assert.equal(first.items.length, 50);
+  assert.equal(second.page, 2);
+  assert.deepEqual(second.items.map(item => item.id), ["8101"]);
+  assert.ok((await readPublicLeads(true, 2)).items.some(item => item.id === "8100"));
+  await sql`DELETE FROM maimai_public_leads WHERE post_id BETWEEN '8100' AND '8152'`;
 });
 
 test("history pages through the 30-day window and collection removes only expired leads", async () => {
