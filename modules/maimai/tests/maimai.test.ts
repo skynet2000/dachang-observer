@@ -65,11 +65,10 @@ test("login or missing post data is a recorded failure, never a healthy empty to
   await assert.rejects(collectMaimai(readers),/topicFeeds/);
   const [capped] = await sql`SELECT next_fetch_at - last_fetch_at = interval '120 minutes' AS capped FROM sources WHERE id=${SOURCE_ID}`;
   assert.equal(capped!.capped, true);
-  const findings = await maimaiModule.followUps();
-  assert.equal(findings[0]?.key, "maimai.collection");
-  assert.equal(findings[0]?.level, "today");
+  const findings = await maimaiModule.followUps(Date.now());
+  assert.equal(findings.find(finding => finding.key === "maimai.collection")?.level, "today");
   await sql`UPDATE sources SET enabled=false WHERE id=${SOURCE_ID}`;
-  assert.deepEqual(await maimaiModule.followUps(), []);
+  assert.deepEqual((await maimaiModule.followUps(Date.now())).map(finding => finding.key), ["maimai.public-leads"]);
   await sql`UPDATE sources SET enabled=true WHERE id=${SOURCE_ID}`;
 });
 

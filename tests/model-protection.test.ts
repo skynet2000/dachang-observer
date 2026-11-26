@@ -11,12 +11,16 @@ after(closeDb);
 const answer={choices:[{message:{content:'{"ok":true}'}}]};
 const ask=(model='intern-flash')=>chatJson({model,purpose:'protection-test',subject:tag(),promptVersion:tag(),system:'JSON',user:tag(),schema:z.object({ok:z.boolean()})});
 test("periodic background work defers on rate limits before buying a fallback", async () => {
- await providers(()=>new Reply(429,{error:'rate limit'},{'Retry-After':'60'}),()=>answer,async(p,m,f)=>{
-  await assert.rejects(chatJson({model:'intern-flash',purpose:'language.english',subject:tag(),promptVersion:tag(),
-   system:'JSON',user:tag(),schema:z.object({ok:z.boolean()}),deferOnRateLimit:true}),ProviderCoolingError);
-  assert.deepEqual([p.hits(),m.hits(),f.hits()],[1,0,0]);
-  assert.equal((await ask()).model,'test-middle');
- });
+ try {
+  await providers(()=>new Reply(429,{error:'rate limit'},{'Retry-After':'60'}),()=>answer,async(p,m,f)=>{
+   await assert.rejects(chatJson({model:'intern-flash',purpose:'language.english',subject:tag(),promptVersion:tag(),
+    system:'JSON',user:tag(),schema:z.object({ok:z.boolean()}),deferOnRateLimit:true}),ProviderCoolingError);
+   assert.deepEqual([p.hits(),m.hits(),f.hits()],[1,0,0]);
+   assert.equal((await ask()).model,'test-middle');
+  });
+ } finally {
+  await sql`DELETE FROM settings WHERE key LIKE 'model.health.intern.%'`;
+ }
 });
 async function providers(primary:Parameters<typeof stub>[0],middle:Parameters<typeof stub>[0],run:(p:Awaited<ReturnType<typeof stub>>,m:Awaited<ReturnType<typeof stub>>,f:Awaited<ReturnType<typeof stub>>)=>Promise<void>){
  const p=await stub(primary),m=await stub(middle),f=await stub(()=>answer);

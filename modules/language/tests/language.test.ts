@@ -12,7 +12,7 @@ const app = Fastify(); language.http!(app);
 after(async () => { await app.close(); await closeDb(); });
 
 test("English uses current public text only, leaves Chinese untouched, and lookup cannot invoke or enqueue models", async () => {
-  assert.equal(language.schedules?.find(job => job.name === "language.translate")?.cron, "*/5 * * * *");
+  assert.equal(language.schedules?.find(job => job.name === "language.translate")?.cron, "2-59/5 * * * *");
   const source = "language-fixture";
   await sql`INSERT INTO sources(id,name,kind,tier,participation_mode) VALUES(${source},'测试媒体','rss','T1','editorial')`;
   const { articleId } = await upsertMaterial({ sourceId: source, url: "https://example.com/language", title: "公司公开信", bodyText: "公司公开信正文", via: "fetch", publishedAt: new Date() });
