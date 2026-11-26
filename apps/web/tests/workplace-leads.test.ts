@@ -5,6 +5,7 @@ import { chromium, expect, type Browser } from "@playwright/test";
 import { startWebServer, type WebServer } from "./web-server.ts";
 
 let failed=false;
+let quiet=false;
 const api=createServer((req,res)=>{
   const url=new URL(req.url!,"http://local");
   const p=url.pathname;
@@ -18,7 +19,8 @@ const api=createServer((req,res)=>{
       firstSeenAt:"2026-11-05T02:00:00Z",lastSeenAt:"2026-11-05T03:00:00Z"
     }]}));
   }
-  if(p==="/api/maimai/leads")return res.end(JSON.stringify({status:{ok:!failed,checkedAt:new Date().toISOString()},items:failed?[]:[{
+  if(p==="/api/maimai/leads")return res.end(JSON.stringify({status:{ok:!failed,checkedAt:new Date().toISOString(),
+    lastNewAt:quiet?new Date(Date.now()-25*3600000).toISOString():undefined},items:failed?[]:[{
     id:"123",url:"https://maimai.cn/n/content/gossip-detail/123?egid=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&gid=123",
     topicUrl:"https://maimai.cn/hot/topic/1",
     title:"腾讯绩效与年终奖讨论",excerpt:"用户原帖，仅作线索。",likes:5,comments:7,publishedAt:null,
@@ -82,4 +84,15 @@ test("failed discovery never presents an empty day as confirmed quiet",async()=>
     await expect(page.getByRole("status")).toContainText("部分公开入口读取失败，当前列表可能不完整。");
     await expect(page.getByText(/不能据此判断当天没有职场讨论/)).toBeVisible();
   } finally {failed=false;await context.close();}
+});
+
+test("a readable source can report a full day without newly collected posts",async()=>{
+  quiet=true;
+  const context=await browser.newContext(),page=await context.newPage();
+  try {
+    await page.goto(web.origin+"/workplace-leads");
+    await expect(page.getByRole("status")).toContainText("公开入口可读取，近 24 小时暂无新帖收录。");
+    await expect(page.getByRole("status")).toContainText("最近新增（北京时间）");
+    await expect(page.getByRole("heading",{name:"腾讯绩效与年终奖讨论"})).toBeVisible();
+  } finally {quiet=false;await context.close();}
 });

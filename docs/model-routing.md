@@ -59,6 +59,8 @@
 
 私有变量 `AIHUBMIX_BASE_URL=https://aihubmix.com/v1`、`AIHUBMIX_API_KEY`。请求模型 `deepseek-v4.1-flash-1017`，真实生成返回 `deepseek-v4-1-flash-261017`。普通任务仅设 `reasoning_effort:none` 实测仍有推理Token，因此同时传原生 `thinking.type:disabled`；该组合实测推理Token为0。推理任务保留 `thinking.type:enabled,reasoning_effort:low`，额外预留12000输出Token。本站设30RPM/3并发保护，并继续使用回执、冷却、有限重试和后继通道机制。
 
+书生默认同时最多执行 2 个请求，仍遵守全站共享的请求节奏。例行英文补译安排在每小时的第 2、7、12 等分钟；遇到当前通道临时限流时结束这一批，剩余原文留待后续补译。资讯准入、摘要等常规任务沿用三层回退。
+
 [官方报价](https://aihubmix.com/blog/aihubmix-desktop-1-0-one-click-setup-for-11-agents-and-half-price-deepseek-v4-1-flash-1017-for-two-weeks)以美元计费。估算取非促销高峰价：每百万Token输入0.3098美元、输出1.2392美元，忽略缓存和促销折扣作为上界。USD单独写入回执、价格表和邮件；不套用DeepSeek人民币价格，不将两种货币直接相加。若恢复有限人民币预算，在没有可信换算机制时阻止此美元通道，不能换币绕过上限。当前不限额模式不受影响。实际扣款以推理时代账单为准。
 
 ### 最新汇率展示（2026-10-30 用户补充）

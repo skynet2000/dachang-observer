@@ -23,9 +23,12 @@ test("anonymous traffic counts Shanghai days, navigation and errors without stor
     await stats.record({ ...page, url: "/assets/app.js", type: "text/javascript" });
     await stats.record({ ...page, status: 503, type: "text/plain" });
     await stats.record({ ...page, status: 404, type: "", url: "/unknown-private-path" });
+    await stats.record({ ...page, status: 404, type: "", url: "/items/private-hint?read=secret", headers: { referer: `${process.env.SITE_URL ?? "http://localhost:3000"}/all?ref=secret` } });
+    await stats.record({ ...page, status: 404, type: "", url: "/story/private-hint", headers: { referer: "https://external.example/private-visitor" } });
     const raw = await readFile(path.join(dir, "2026-10-25.json"), "utf8");
     const day = JSON.parse(raw);
-    assert.equal(day.views, 2); assert.equal(day.bots, 2); assert.equal(day.errors, 1); assert.equal(day.notFound, 1);
+    assert.equal(day.views, 2); assert.equal(day.bots, 2); assert.equal(day.errors, 1); assert.equal(day.notFound, 3);
+    assert.deepEqual(day.notFoundByRoute, { "other:unknown": 1, "items:internal": 1, "story:external": 1 });
     assert.deepEqual(day.pages, { "/all": 1, "/daily/2026-10-25": 1 });
     assert.ok(!/secret|private|Mozilla|Googlebot|token|user-agent/i.test(raw));
     const restarted = new AccessStats(dir, () => new Date("2026-10-25T16:01:00Z"));

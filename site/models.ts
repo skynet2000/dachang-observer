@@ -84,7 +84,7 @@ export const DEFAULTS: Record<string, string> = { score: "deepseek-flash-think" 
 // 同一 service 的普通、推理、重试及维护请求共用节奏；书生为平台 50 RPM 留余量，AIHubMix 采用本站保守节奏。
 export const MODEL_REQUESTS_PER_MINUTE: Readonly<Record<string, number>> = { intern: 45, aihubmix: 30 };
 // Shared with maintenance processes through receipt reservations; local waiting never buys a fallback.
-export const MODEL_MAX_CONCURRENT: Readonly<Record<string, number>> = { intern: 3, aihubmix: 3 };
+export const MODEL_MAX_CONCURRENT: Readonly<Record<string, number>> = { intern: 2, aihubmix: 3 };
 
 // 2026-10-21 核验：https://api-docs.deepseek.com/zh-cn/quick_start/pricing
 // 当前 deepseek-flash 对应官方 V4.1-Flash-1017；官方未公布单独可调用的日期版名称。

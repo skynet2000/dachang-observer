@@ -20,6 +20,15 @@ test("36kr and Huxiu RSS attribution does not duplicate their web articles", () 
   assert.equal(normalizeUrl("https://example.org/post?f=rss"), "https://example.org/post?f=rss");
 });
 
+test("Jinli weekly paths keep the imported identity across the publisher's redirects", () => {
+  const base = "https://jinliqiuzhi.com/weekly/2026w47/";
+  for (const kind of ["campus", "intern"]) {
+    assert.equal(identityKeyForUrl(base + `internet-${kind}.html`), `url:${base}internet_${kind}`);
+  }
+  assert.notEqual(identityKeyForUrl(base + "internet-campus.html"), identityKeyForUrl(base + "internet-intern.html"));
+  assert.notEqual(identityKeyForUrl(base + "internet-campus.html"), identityKeyForUrl(base.replace("w47", "w46") + "internet-campus.html"));
+});
+
 test("X and Twitter status URL variants keep the same material identity", () => {
   for (const host of ["x.com", "twitter.com", "www.x.com", "www.twitter.com", "mobile.twitter.com", "m.twitter.com"]) {
     for (const path of ["/openai/status/1234567890", "/openai/statuses/1234567890", "/i/status/1234567890"]) {

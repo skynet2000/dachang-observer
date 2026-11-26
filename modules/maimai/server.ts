@@ -12,7 +12,7 @@ import { noiseFiltered } from "@aihot/backend/sources/filters";
 import { FetchError, type Candidate, type SourceRow } from "@aihot/backend/sources/types";
 
 import scope from "./scope.json" with { type: "json" };
-import { collectPublicLeads, readPublicLeads } from "./public-leads.ts";
+import { collectPublicLeads, PUBLIC_LEAD_QUIET_MS, readPublicLeads } from "./public-leads.ts";
 
 export const SOURCE_ID = MAIMAI_COLLECTION.sourceId;
 export const NOTICE = "未经独立核实";
@@ -222,14 +222,20 @@ export default {
       return readPublicLeads(req.query.view === "history", Number(req.query.page ?? 1));
     });
   },
-  followUps: async () => {
+  followUps: async (now) => {
     if (process.env.COLLECT_ENABLED !== "true") return [];
     const [savedState] = await sql`SELECT value FROM settings WHERE key='maimai.public-leads'`;
     const publicState = savedState?.value;
-    const publicIssues = publicState && (!publicState.ok || Date.now()-new Date(publicState.checkedAt).getTime()>90*60000) ? [{
+    const publicIssues = !publicState || !publicState.ok || now-new Date(publicState.checkedAt).getTime()>90*60000 ? [{
       key: "maimai.public-leads", level: "today" as const, owner: true as const,
       title: "脉脉公开热议线索采集不完整", impact: "职场热议可能缺少新帖",
       action: "检查公开热榜格式、话题页读取和最近成功时间；不要将失败当作当天没有合格讨论",
+    }] : publicState.lastNewAt !== undefined && (!publicState.lastNewAt || now-Date.parse(publicState.lastNewAt)>=PUBLIC_LEAD_QUIET_MS) ? [{
+      key: "maimai.public-leads.quiet", level: "today" as const, owner: true as const,
+      title: "职场热议超过 24 小时没有入库新帖", impact: "最近列表可读，但新帖供给不足",
+      action: "核对热榜话题变化、实际候选和未入库原因",
+      detail: `本轮新话题 ${publicState.newTopics} 个，读到 ${publicState.found} 条，新增 ${publicState.newPosts} 条；未入库计数 ${JSON.stringify(publicState.rejected)}`,
+      since: publicState.lastNewAt ? new Date(publicState.lastNewAt) : undefined,
     }] : [];
     const [source] = await sql`SELECT last_error, last_ok_at FROM sources
       WHERE id = ${SOURCE_ID} AND enabled AND fail_count >= 3 AND health = 'failing'`;
@@ -242,7 +248,7 @@ export default {
       since: source.last_ok_at ?? undefined,
     }] : [])];
   },
-  schedules: [{ name: "maimai.poll", cron: "* * * * *", when: () => process.env.COLLECT_ENABLED === "true",
+  schedules: [{ name: "maimai.poll", cron: "* * * * *", when: () => process.env.COLLECT_ENABLED === "true" && Boolean(credential("collectors", "MAIMAI_COOKIE")),
     run: async () => {
       const [due] = await sql`
         SELECT 1 FROM sources

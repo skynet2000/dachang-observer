@@ -5,11 +5,23 @@ import {after,test} from 'node:test';
 import {z} from 'zod';
 import {chatJson} from '@aihot/backend/providers/llm';
 import {sql,closeDb} from '@aihot/backend/db';
-import {failureKind,retryAfterMs,recordModelHealth} from '@aihot/backend/providers/model-health';
+import {failureKind,ProviderCoolingError,retryAfterMs,recordModelHealth} from '@aihot/backend/providers/model-health';
 import {BudgetExceededError} from '@aihot/backend/providers/receipts';
 after(closeDb);
 const answer={choices:[{message:{content:'{"ok":true}'}}]};
 const ask=(model='intern-flash')=>chatJson({model,purpose:'protection-test',subject:tag(),promptVersion:tag(),system:'JSON',user:tag(),schema:z.object({ok:z.boolean()})});
+test("periodic background work defers on rate limits before buying a fallback", async () => {
+ try {
+  await providers(()=>new Reply(429,{error:'rate limit'},{'Retry-After':'60'}),()=>answer,async(p,m,f)=>{
+   await assert.rejects(chatJson({model:'intern-flash',purpose:'language.english',subject:tag(),promptVersion:tag(),
+    system:'JSON',user:tag(),schema:z.object({ok:z.boolean()}),deferOnRateLimit:true}),ProviderCoolingError);
+   assert.deepEqual([p.hits(),m.hits(),f.hits()],[1,0,0]);
+   assert.equal((await ask()).model,'test-middle');
+  });
+ } finally {
+  await sql`DELETE FROM settings WHERE key LIKE 'model.health.intern.%'`;
+ }
+});
 async function providers(primary:Parameters<typeof stub>[0],middle:Parameters<typeof stub>[0],run:(p:Awaited<ReturnType<typeof stub>>,m:Awaited<ReturnType<typeof stub>>,f:Awaited<ReturnType<typeof stub>>)=>Promise<void>){
  const p=await stub(primary),m=await stub(middle),f=await stub(()=>answer);
  const names=['INTERN_BASE_URL','INTERN_API_KEY','TEST_MIDDLE_URL','TEST_MIDDLE_KEY','DEEPSEEK_BASE_URL','DEEPSEEK_API_KEY'];const old=names.map(k=>process.env[k]);
