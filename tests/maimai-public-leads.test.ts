@@ -48,6 +48,7 @@ test("public collection is independent from publications and preserves discovery
   };
   try {
     const result=await collectPublicLeads({topics:async()=>[topic],posts});
+    assert.ok("found" in result);
     assert.equal(result.found,3);assert.equal(result.kept,2);
     assert.equal(result.newPosts,2);assert.equal(result.rejected?.lowInteraction,1);
     let data=await readPublicLeads();assert.equal(data.items.length,2);assert.equal(data.status.ok,true);
@@ -55,6 +56,7 @@ test("public collection is independent from publications and preserves discovery
     const first=data.items.find(i=>i.id==="123")!.firstSeenAt;
     await sql`UPDATE maimai_public_leads SET visible=false WHERE post_id='456'`;
     const again = await collectPublicLeads({topics:async()=>[topic],posts});
+    assert.ok("found" in again);
     assert.equal(again.newPosts,0);
     assert.equal(again.lastNewAt,first.toISOString());
     data=await readPublicLeads();assert.equal(data.items.length,1);assert.equal(+data.items[0].firstSeenAt,+first);

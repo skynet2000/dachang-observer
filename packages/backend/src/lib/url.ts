@@ -66,8 +66,12 @@ export function identityKeyForUrl(url: string, opts: { keepFragment?: boolean } 
   const parsed = new URL(normalized);
   const post = parsed.hostname === "maimai.cn" && !parsed.port && /^\/(?:n\/content|community)\/gossip-detail\/(\d+)\/?$/.exec(parsed.pathname);
   if (post) return `maimai:post:${post[1]}`;
+  // The publisher redirects its old weekly URLs. Keep their existing identity for both forms.
+  if (parsed.hostname === "jinliqiuzhi.com" && !parsed.port) {
+    parsed.pathname = parsed.pathname.replace(/^(\/weekly\/\d{4}w\d{2}\/internet)-(campus|intern)\.html$/, "$1_$2");
+  }
   const fragment = opts.keepFragment ? new URL(url.trim()).hash : "";
-  return `url:${normalized}${fragment.length > 1 ? fragment : ""}`;
+  return `url:${parsed.href}${fragment.length > 1 ? fragment : ""}`;
 }
 
 function ipv4Blocked(o: [number, number, number, number]): boolean {
