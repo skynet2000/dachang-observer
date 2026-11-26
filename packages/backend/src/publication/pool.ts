@@ -129,6 +129,7 @@ async function queryPool(query: PoolQuery, now: Date): Promise<PoolResponse> {
   const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)}`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
   const cap = POOL_MAX_PAGES * POOL_PAGE_SIZE;
+  const todayStart = beijingMidnight(beijingDate(now));
 
   // Searches go through pool_search (eligible items only): trigram indexes for longer terms, a small
   // table to scan for one- and two-character ones.
@@ -138,12 +139,15 @@ async function queryPool(query: PoolQuery, now: Date): Promise<PoolResponse> {
   // fact cannot move it ahead; filters and search still choose among matching reports first.
   type GroupedRow = ItemRow & { anchor_at: Date; group_public_id: string | null; group_story_id: number | null; development_count: number; report_count: number; source_count: number; rel: number };
   const groupedPage = async (db: Db, candidates: ReturnType<typeof sql>) => {
-    const result = await db<(Omit<GroupedRow, "id"> & { id: string | null; total: number })[]>`
+    const result = await db<(Omit<GroupedRow, "id"> & { id: string | null; total: number; today_count: number })[]>`
       WITH ${eventEntries(candidates)}, page AS MATERIALIZED (
         SELECT * FROM entries ORDER BY rel DESC, anchor_at DESC, article_id DESC
         LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
-      ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM entries LIMIT ${cap}) capped)
-      SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
+      ), total AS (
+        SELECT (SELECT count(*) FROM (SELECT 1 FROM entries LIMIT ${cap}) capped) AS n,
+               ${q ? sql`0` : sql`(SELECT count(*) FROM entries WHERE anchor_at >= ${todayStart})`} AS today_count
+      )
+      SELECT hydrated.*, total.n AS total, total.today_count FROM total LEFT JOIN LATERAL (
         SELECT ${ITEM_COLUMNS}, page.anchor_at, page.rel, reports.report_count, reports.source_count, reports.development_count,
           f.public_id AS group_public_id, page.story_id AS group_story_id
         ${ITEM_FROM} JOIN page ON page.article_id = p.article_id LEFT JOIN facts f ON f.id = p.fact_id AND ${ownFactEvidenceCondition()} AND ${foldableSelectionCondition()}
@@ -156,7 +160,8 @@ async function queryPool(query: PoolQuery, now: Date): Promise<PoolResponse> {
             AND ${listedCondition(now)} ${filters}
         ) reports ON true
       ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.anchor_at DESC, hydrated.id DESC`;
-    return { rows: result.filter((r): r is GroupedRow & { total: number } => r.id !== null), total: Number(result[0]!.total) };
+    return { rows: result.filter((r): r is GroupedRow & { total: number; today_count: number } => r.id !== null),
+      total: Number(result[0]!.total), todayCount: Number(result[0]!.today_count) };
   };
   const run = async (db: Db) => {
     if (!q) {
@@ -198,11 +203,10 @@ async function queryPool(query: PoolQuery, now: Date): Promise<PoolResponse> {
       WHERE ${listedCondition(now)} ${filters} ${matchOrSubject(directMatchCondition(terms))}`);
   };
 
-  const { rows, total } = q ? await withSearchCapacity(run) : await run(sql);
-  const today = beijingDate(now);
+  const { rows, total, todayCount } = q ? await withSearchCapacity(run) : await run(sql);
   const meta = one(await sql<{ today_count: number; updated_at: Date | null }[]>`
-    WITH ${eventEntries(sql`SELECT p.article_id, 0 AS rel FROM publications p WHERE ${listedCondition(now)} ${filters}`)}
-    SELECT (SELECT count(*) FROM entries WHERE anchor_at >= ${beijingMidnight(today)}) AS today_count,
+    ${q ? sql`WITH ${eventEntries(sql`SELECT p.article_id, 0 AS rel FROM publications p WHERE ${listedCondition(now)} ${filters}`)}` : sql``}
+    SELECT ${q ? sql`(SELECT count(*) FROM entries WHERE anchor_at >= ${todayStart})` : sql`${todayCount}::bigint`} AS today_count,
       (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`);
 
   const holders = await seatHolders(rows, now);

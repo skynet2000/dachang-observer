@@ -7,7 +7,7 @@
 // tracking for messages it returns and replacing the default digest policy.
 // Delivery goes through sendAlert (ops chat, internal-chat fallback; off unless FEISHU_INTERNAL_ENABLED).
 import { addDays, beijingAt, beijingDate, isValidDate } from "@aihot/contracts/time";
-import { ALERTS, EDITION_TIMES } from "@aihot/site";
+import { ALERTS, EDITION_TIMES, READER_CATEGORIES } from "@aihot/site";
 import { sql } from "../db.ts";
 import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAlert, type Finding, type Level } from "../notify/feishu.ts";
 import { stepsOnService } from "../editorial/models.ts";
@@ -174,6 +174,30 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
       if (group.detailFailures.length) out.push({
         key: `sources.details.${group.mode}`, level: "later", title: `${group.name}有 ${group.detailFailures.length} 个信源详情补全失败`,
         detail: sourceHealthList(group.detailFailures, s => `近 7 天 ${s.detail_failures} 次`) + "；查看抓取记录中的详情地址与错误",
+      });
+    }
+    if (READER_CATEGORIES.some(category => category.key === "jobs")) {
+      const since = new Date(now - 86400_000);
+      const [coverage] = await sql<{ published: number; found: number; blocked: number; pending: number; other_category: number }[]>`
+        WITH candidates AS (
+          SELECT a.id, a.processing_state, p.category, p.eligible, p.visibility, p.backfill,
+                 (SELECT an.relevance FROM analyses an WHERE an.article_id=a.id AND an.input_revision=a.revision ORDER BY an.id DESC LIMIT 1) AS relevance
+          FROM articles a JOIN sources s ON s.id=a.source_id AND s.participation_mode='editorial'
+          LEFT JOIN publications p ON p.article_id=a.id
+          WHERE a.discovered_at >= ${since} AND a.discovered_at <= ${new Date(now)} AND NOT a.backfill
+            AND a.title ~* '(裁员|裁撤|缩编|裁减岗位|冻结招聘|招聘冻结|离职补偿|经济补偿|遣散|停止招聘|layoffs?|hiring freez|job cuts|redundancies)'
+        )
+        SELECT (SELECT count(*)::int FROM publications WHERE category='jobs' AND eligible AND visibility='public' AND NOT backfill
+                AND sort_at >= ${since} AND sort_at <= ${new Date(now)}) AS published,
+          count(*)::int AS found,
+          count(*) FILTER (WHERE relevance='block' OR processing_state IN ('blocked','skipped'))::int AS blocked,
+          count(*) FILTER (WHERE processing_state IN ('new','failed'))::int AS pending,
+          count(*) FILTER (WHERE eligible AND visibility='public' AND NOT backfill AND category IS DISTINCT FROM 'jobs')::int AS other_category
+        FROM candidates`;
+      if (coverage && coverage.published <= 1) out.push({
+        key: "content.jobs-coverage", level: "later", title: "裁员与招聘近 24 小时更新偏少",
+        detail: `公开 ${coverage.published} 条。按原稿标题粗筛裁员、补偿与招聘收缩，发现 ${coverage.found} 条，筛除 ${coverage.blocked} 条，待处理或失败 ${coverage.pending} 条，发布到其他栏目 ${coverage.other_category} 条。`,
+        action: "发现少则核对信源覆盖。若有候选，先复核准入和分栏",
       });
     }
   }

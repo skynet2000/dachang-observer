@@ -70,6 +70,8 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   maxTokens?: number;
   attemptTag?: string;
   timeoutMs?: number;
+  /** Let a periodic task defer to its next run while the active provider is rate limited. */
+  deferOnRateLimit?: boolean;
   /** false: the model answers in its own text format (no JSON mode); `parse` turns it into the schema's input. */
   json?: boolean;
   parse?: (content: string) => unknown;
@@ -148,6 +150,13 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       // Reuse an existing answer before checking provider health; each new send is paced and receipted.
       return await chatJsonOnce({ ...opts, model: spec.key });
     } catch (error) {
+      const kind = error instanceof ProviderRejectedError ? failureKind(error.status, error.message) : null;
+      if (opts.deferOnRateLimit) {
+        if (error instanceof ProviderCoolingError && (error.reason === "rate" || error.reason === "probe")) throw error;
+        if (kind === "rate" && error instanceof ProviderRejectedError) {
+          throw new ProviderCoolingError(spec.service, error.retryAfterMs ?? 5000, "rate");
+        }
+      }
       // Local protection, missing credentials and database errors never become another provider's request.
       if (!fallback || !(error instanceof ProviderRejectedError || error instanceof ReceiptUnknownError || error instanceof ModelOutputError || error instanceof ProviderCoolingError)) throw error;
       const protectedLayer = !!MODEL_MAX_CONCURRENT[spec.service];
@@ -159,7 +168,6 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         await setTimeout(coolingWait, undefined, { signal: shutdownSignal.signal });
         continue;
       }
-      const kind = error instanceof ProviderRejectedError ? failureKind(error.status, error.message) : null;
       // One recovery attempt on free layers for known transient failures or unusable output, never an unknown outcome.
       if (protectedLayer && retries === 0 && (error instanceof ModelOutputError || kind === "rate" || kind === "server")) {
         const delay = error instanceof ProviderRejectedError ? error.retryAfterMs ?? (kind === "rate" ? 5000 : 2000) : 1000;

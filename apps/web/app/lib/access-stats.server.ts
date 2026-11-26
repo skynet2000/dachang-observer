@@ -6,7 +6,7 @@ import path from "node:path";
 import { RollingVisitors } from "./rolling-visitors.server.ts";
 
 interface Visit { method?: string; url?: string; headers: Record<string, string | string[] | undefined>; status: number; type: string; clientAddress?: string }
-interface Day { day: string; views: number; bots: number; errors: number; notFound: number; pages: Record<string, number>; uniqueVisitors?: number; uvSince?: string }
+interface Day { day: string; views: number; bots: number; errors: number; notFound: number; pages: Record<string, number>; uniqueVisitors?: number; uvSince?: string; notFoundByRoute?: Record<string, number> }
 interface VisitorState { day: string; key: string; since: string; visitors: Set<string> }
 const beijingDay = (at: Date) => new Date(at.getTime() + 8 * 3600_000).toISOString().slice(0, 10);
 
@@ -81,7 +81,17 @@ export class AccessStats {
           if (!this.visitors.visitors.has(visitor)) { this.visitors.visitors.add(visitor); changed = true; }
         }
       } else if (visit.status >= 500) data.errors++;
-      else if (visit.status === 404) data.notFound++;
+      else if (visit.status === 404) {
+        data.notFound++;
+        const route = /^\/(items|story|daily|weekly|monthly|topics|account|search)(?:\/|$)/.exec(pathname)?.[1] ?? "other";
+        const referrer = visit.headers.referer;
+        const origin = typeof referrer === "string" ? URL.parse(referrer)?.origin : undefined;
+        const site = URL.parse(process.env.SITE_URL ?? "http://localhost:3000")?.origin;
+        const source = !origin || origin === "null" ? "unknown" : origin === site ? "internal" : "external";
+        const counts = data.notFoundByRoute ??= {};
+        const bucket = route + ":" + source;
+        counts[bucket] = (counts[bucket] ?? 0) + 1;
+      }
       if (changed) {
         await writeFile(`${stateFile}.tmp`, JSON.stringify({ ...this.visitors, visitors: [...this.visitors.visitors] }), { mode: 0o600 });
         await rename(`${stateFile}.tmp`, stateFile);

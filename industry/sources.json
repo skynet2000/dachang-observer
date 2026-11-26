@@ -123,7 +123,7 @@
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": true
+      "enabled": false
     },
     {
       "id": "web-huxiu-tech",
@@ -163,7 +163,7 @@
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": true
+      "enabled": false
     },
     {
       "id": "web-jd-blog",
@@ -8620,7 +8620,7 @@
         },
         "url": "https://jinliqiuzhi.com/weekly",
         "parseMode": "html",
-        "itemSelector": "main .jobs:first a:is([href$='/internet_campus'], [href$='/internet_intern'])",
+        "itemSelector": "main .jobs:first a:is([href$='/internet_campus'], [href$='/internet_intern'], [href$='/internet-campus.html'], [href$='/internet-intern.html'])",
         "titleSelector": ".job-title",
         "allowUrlPrefixes": [
           "https://jinliqiuzhi.com/weekly/"

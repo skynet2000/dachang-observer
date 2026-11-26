@@ -1,6 +1,8 @@
 // Reviewed interface labels. Longer public interface copy is filled by the worker's saved translations.
 export const englishUi: Record<string, string> = {
   "职场热议": "Workplace discussions",
+  "公开入口可读取，近 24 小时暂无新帖收录。": "Public sources are reachable. No new discussions were added in the past 24 hours.",
+  "最近新增（北京时间）": "Last addition (Beijing time)",
   "近期": "Recent", "近 30 天": "Past 30 days", "职场热议时间范围": "Workplace discussions time range",
   "展示近 30 天发现的讨论，互动数为最后一次观察值。": "Discussions found over the past 30 days. Interaction counts reflect the last observation.",
   "近 30 天暂无存档讨论。": "No discussions were archived in the past 30 days.",
