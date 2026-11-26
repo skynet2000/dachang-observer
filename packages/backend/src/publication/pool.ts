@@ -127,6 +127,7 @@ async function queryPool(query: PoolQuery, now: Date): Promise<PoolResponse> {
   const terms = q ? searchTerms(q) : [];
   const entityTag = q ? queryEntityTag(q) : null;
   const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)}`;
+  const reportScope = sql`${ownFactEvidenceCondition()} AND ${listedCondition(now)} ${filters}`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
   const cap = POOL_MAX_PAGES * POOL_PAGE_SIZE;
   const todayStart = beijingMidnight(beijingDate(now));
@@ -152,12 +153,16 @@ async function queryPool(query: PoolQuery, now: Date): Promise<PoolResponse> {
           f.public_id AS group_public_id, page.story_id AS group_story_id
         ${ITEM_FROM} JOIN page ON page.article_id = p.article_id LEFT JOIN facts f ON f.id = p.fact_id AND ${ownFactEvidenceCondition()} AND ${foldableSelectionCondition()}
         LEFT JOIN LATERAL (
-          SELECT count(*)::int AS report_count, count(DISTINCT p.source_id)::int AS source_count,
-            count(DISTINCT p.fact_id)::int AS development_count
-          FROM publications p JOIN facts member_fact ON member_fact.id = p.fact_id
-          WHERE (CASE WHEN page.story_id IS NOT NULL THEN member_fact.story_id = page.story_id ELSE p.fact_id = f.id END)
-            AND ${ownFactEvidenceCondition()}
-            AND ${listedCondition(now)} ${filters}
+          SELECT count(*)::int AS report_count, count(DISTINCT source_id)::int AS source_count,
+            count(DISTINCT fact_id)::int AS development_count
+          FROM (
+            SELECT p.source_id, p.fact_id
+            FROM facts member_fact JOIN publications p ON p.fact_id = member_fact.id
+            WHERE page.story_id IS NOT NULL AND member_fact.story_id = page.story_id AND ${reportScope}
+            UNION ALL
+            SELECT p.source_id, p.fact_id FROM publications p
+            WHERE page.story_id IS NULL AND p.fact_id = f.id AND ${reportScope}
+          ) members
         ) reports ON true
       ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.anchor_at DESC, hydrated.id DESC`;
     return { rows: result.filter((r): r is GroupedRow & { total: number; today_count: number } => r.id !== null),
